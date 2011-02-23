@@ -47,6 +47,8 @@ public class Tactics extends Activity implements OnTouchListener
 		return true;
 	}
 
+	private GameBoard mGameBoard;
+	private Unit mPlayer;
 	private TacticsView mTacticsView;
 	private TacticsThread mThread;
 }
