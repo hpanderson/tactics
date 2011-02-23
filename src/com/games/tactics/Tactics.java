@@ -29,6 +29,14 @@ public class Tactics extends Activity implements OnTouchListener
 	
 		mTacticsView.setOnTouchListener(this);
 		mThread = mTacticsView.getThread();
+
+		mBoard = new GameBoard(6, 10);
+		mPlayer = new Unit();
+		mEnemy = new Unit();
+		mEnemy.moveTo(mBoard.width() - 1, mBoard.height() - 1); // move to opposite end of board
+		mThread.setGameBoard(mBoard);
+		mThread.setPlayer(mPlayer);
+		mThread.setEnemy(mEnemy);
 	}
 
 	public boolean onTouch(View inView, MotionEvent inEvent)
@@ -39,16 +47,16 @@ public class Tactics extends Activity implements OnTouchListener
 			mThread.drawTargetLine(-1, -1);
 		}
 
-		if (inEvent.getPointerCount() > 1)
-		{
-			mThread.initializeRect();
+		if (inEvent.getPointerCount() > 1) {
+			mEnemy.moveTo(mBoard.width() - 1, mBoard.height() - 1);
 		}
 
 		return true;
 	}
 
-	private GameBoard mGameBoard;
+	private GameBoard mBoard;
 	private Unit mPlayer;
+	private Unit mEnemy;
 	private TacticsView mTacticsView;
 	private TacticsThread mThread;
 }

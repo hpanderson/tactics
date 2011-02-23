@@ -9,6 +9,7 @@ import android.os.Message;
 import android.graphics.Canvas;
 import android.graphics.Point;
 import android.graphics.Rect;
+import android.graphics.RectF;
 import android.graphics.Paint;
 import android.graphics.Color;
 import android.util.Log;
@@ -91,7 +92,6 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 			mHandler = inHandler; // not sure if this is necessary
 
 			mRunning = false;
-			mInitialized = false;
 
 			mTime = 0;
 
@@ -99,7 +99,7 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 			mCanvasWidth = 0;
 
 			mLineEnd = new Point(-1, -1);
-			initializeRect();
+			mTileSize = new Point(1, 1);
 		}
 
         public void run()
@@ -136,28 +136,51 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 
 			Paint rectPaint = new Paint();
             rectPaint.setAntiAlias(true);
-            rectPaint.setColor(Color.GREEN);
+            rectPaint.setColor(Color.WHITE);
+			rectPaint.setStyle(Paint.Style.STROKE);
 
 			//Log.w(this.getClass().getName(), mTopLeft.toString());
 
-            inCanvas.drawLine(mTopLeft.x, mTopLeft.y, mTopRight.x, mTopRight.y, rectPaint);
+            /*inCanvas.drawLine(mTopLeft.x, mTopLeft.y, mTopRight.x, mTopRight.y, rectPaint);
             inCanvas.drawLine(mTopRight.x, mTopRight.y, mBottomRight.x, mBottomRight.y, rectPaint);
             inCanvas.drawLine(mBottomRight.x, mBottomRight.y, mBottomLeft.x, mBottomLeft.y, rectPaint);
-            inCanvas.drawLine(mBottomLeft.x, mBottomLeft.y, mTopLeft.x, mTopLeft.y, rectPaint);
+            inCanvas.drawLine(mBottomLeft.x, mBottomLeft.y, mTopLeft.x, mTopLeft.y, rectPaint);*/
+
+			for (int x = 0; x < mBoard.width(); x++) {
+				for (int y = 0; y < mBoard.height(); y++) {
+					Rect tileRect = boardToScreen(new Point(x, y));
+					inCanvas.drawRect(tileRect, rectPaint);
+				}
+			}
+
+			Paint playerPaint = new Paint();
+            playerPaint.setAntiAlias(true);
+			playerPaint.setColor(Color.BLUE);
+			playerPaint.setStyle(Paint.Style.STROKE);
+
+			RectF playerRect = new RectF(boardToScreen(mPlayer.getLocation()));
+			inCanvas.drawOval(playerRect, playerPaint);
+
+			Paint enemyPaint = new Paint();
+            enemyPaint.setAntiAlias(true);
+			enemyPaint.setColor(Color.GREEN);
+			enemyPaint.setStyle(Paint.Style.STROKE);
+
+			RectF enemyRect = new RectF(boardToScreen(mEnemy.getLocation()));
+			//Log.w(this.getClass().getName(), mEnemy.getLocation().toString());
+			inCanvas.drawOval(enemyRect, enemyPaint);
 
 			if (mLineEnd.x >= 0) {
 				Paint linePaint = new Paint();
 				linePaint.setAntiAlias(true);
 
-				Log.w(this.getClass().getName(), mLineEnd.toString());
-				Log.w(this.getClass().getName(), mTargetRect.toString());
-				if (mTargetRect.contains(mLineEnd.x, mLineEnd.y)) {
+				if (enemyRect.contains(mLineEnd.x, mLineEnd.y)) {
 					linePaint.setColor(Color.RED);
 				} else {
 					linePaint.setColor(Color.WHITE);
 				}
 
-				inCanvas.drawLine(mLineStart.x, mLineStart.y, mLineEnd.x, mLineEnd.y, linePaint);
+				inCanvas.drawLine(playerRect.centerX(), playerRect.centerY(), mLineEnd.x, mLineEnd.y, linePaint);
 			}
 		}
 
@@ -168,24 +191,9 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 				mCanvasHeight = inHeight;
 				mCanvasWidth = inWidth;
 
-				if (!mInitialized) {
-					initializeRect();
-					mInitialized = true;
-				}
+				if (mBoard.width() > 0 && mBoard.height() > 0)
+					mTileSize = new Point(mCanvasWidth / mBoard.width(), mCanvasHeight / mBoard.height());
 			}
-		}
-
-		public void initializeRect()
-		{
-			int midH = mCanvasHeight / 2;
-			int midW = mCanvasWidth / 2;
-
-			mTopLeft = new Point(midW - 10, midH - 10);
-			mTopRight = new Point(midW + 10, midH - 10);
-			mBottomLeft = new Point(midW - 10, midH + 10);
-			mBottomRight = new Point(midW + 10, midH + 10);
-
-			mLineStart = new Point(midW, midH);
 		}
 
 		public void drawTargetLine(int inX, int inY)
@@ -193,50 +201,48 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 			mLineEnd = new Point(inX, inY);
 		}
 
-		private void updatePosition()
+		public void setPlayer(Unit inPlayer)
 		{
-			mTopLeft.offset(getDelta(), getDelta());
-			mTopLeft = rectifyPoint(mTopLeft);
-
-			mTopRight.offset(getDelta(), getDelta());
-			mTopRight = rectifyPoint(mTopRight);
-
-			mBottomLeft.offset(getDelta(), getDelta());
-			mBottomLeft = rectifyPoint(mBottomLeft);
-
-			mBottomRight.offset(getDelta(), getDelta());
-			mBottomRight = rectifyPoint(mBottomRight);
-
-			// rought target rect
-			mTargetRect = new Rect();
-			mTargetRect.right = Math.max(Math.max(Math.max(mTopLeft.x, mTopRight.x), mBottomLeft.x), mBottomRight.x);
-			mTargetRect.left = Math.min(Math.min(Math.min(mTopLeft.x, mTopRight.x), mBottomLeft.x), mBottomRight.x);
-			mTargetRect.bottom = Math.max(Math.max(Math.max(mTopLeft.y, mTopRight.y), mBottomLeft.y), mBottomRight.y);
-			mTargetRect.top = Math.min(Math.min(Math.min(mTopLeft.y, mTopRight.y), mBottomLeft.y), mBottomRight.y);
+			mPlayer = inPlayer;
 		}
 
-		private Point rectifyPoint(Point ioPoint)
+		public void setEnemy(Unit inEnemy)
 		{
-			if (ioPoint.x < 0)
-				ioPoint.x = 0;
-			
-			if (ioPoint.y < 0)
-				ioPoint.y = 0;
+			mEnemy = inEnemy;
+		}
 
-			if (ioPoint.x > mCanvasWidth)
-				ioPoint.x = mCanvasWidth;
+		public void setGameBoard(GameBoard inBoard)
+		{
+			mBoard = inBoard;
 
-			if (ioPoint.y > mCanvasHeight)
-				ioPoint.y = mCanvasHeight;
+			if (mBoard.width() > 0 && mBoard.height() > 0)
+				mTileSize = new Point(mCanvasWidth / mBoard.width(), mCanvasHeight / mBoard.height());
+		}
 
-			return ioPoint;
+		private void updatePosition()
+		{
+			mEnemy.move(getDelta(), getDelta(), mBoard.getRect());
 		}
 
 		private int getDelta()
 		{
-			int outDelta = (int)(Math.random() * 6) - 3; 
-			//Log.w(this.getClass().getName(), Integer.toString(outDelta));
-			return outDelta;
+			double randomProb = Math.random();
+			if (randomProb > .667)
+				return 1;
+			if (randomProb < .333)
+				return -1;
+			return 0;
+		}
+
+		private Rect boardToScreen(Point inPoint)
+		{
+			Rect outRect = new Rect();
+
+			outRect.left = inPoint.x * mTileSize.x;
+			outRect.top = inPoint.y * mTileSize.y;
+			outRect.right = outRect.left + mTileSize.x;
+			outRect.bottom = outRect.top + mTileSize.y;
+			return outRect;
 		}
 
         /**
@@ -258,20 +264,16 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 
 		private int mCanvasHeight;
 		private int mCanvasWidth;
+		private Point mTileSize;
 
 		private boolean mRunning;
-		private boolean mInitialized;
-
-		private Point mTopLeft;
-		private Point mTopRight;
-		private Point mBottomLeft;
-		private Point mBottomRight;
-
-		private Rect mTargetRect;
 
 		private Point mLineEnd;
-		private Point mLineStart;
 
 		private long mTime;
+
+		private GameBoard mBoard;
+		private Unit mPlayer;
+		private Unit mEnemy;
 	}
 }
