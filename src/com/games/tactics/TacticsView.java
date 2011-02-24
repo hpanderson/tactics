@@ -113,7 +113,7 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
                     synchronized (mSurfaceHolder)
 				   	{
 						long now = System.currentTimeMillis();
-                        if (now - mTime > 25) {
+                        if (now - mTime > 2000) {
 						   	updatePosition();
 							mTime = now;
 						}
@@ -243,6 +243,18 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 			outRect.right = outRect.left + mTileSize.x;
 			outRect.bottom = outRect.top + mTileSize.y;
 			return outRect;
+		}
+
+		public Point screenToBoard(Point inPoint)
+		{
+			Point outPoint = new Point();
+
+			if (mTileSize.x == 0 || mTileSize.y == 0)
+				return outPoint;
+
+			outPoint.x = inPoint.x / mTileSize.x;
+			outPoint.y = inPoint.y / mTileSize.y;
+			return outPoint;
 		}
 
         /**

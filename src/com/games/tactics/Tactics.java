@@ -6,6 +6,7 @@ import android.util.Log;
 import android.view.View;
 import android.view.View.OnTouchListener;
 import android.view.MotionEvent;
+import android.graphics.Point;
 
 import com.games.tactics.TacticsView.TacticsThread;
 
@@ -37,23 +38,56 @@ public class Tactics extends Activity implements OnTouchListener
 		mThread.setGameBoard(mBoard);
 		mThread.setPlayer(mPlayer);
 		mThread.setEnemy(mEnemy);
+		mMovingPlayer = false;
 	}
 
 	public boolean onTouch(View inView, MotionEvent inEvent)
 	{
-		if (inEvent.getAction() != MotionEvent.ACTION_UP) {
-			mThread.drawTargetLine((int)inEvent.getX(), (int)inEvent.getY());
-		} else {
-			mThread.drawTargetLine(-1, -1);
+		Point landingPoint = mThread.screenToBoard(new Point((int)inEvent.getX(), (int)inEvent.getY()));
+		Point playerPoint = mPlayer.getLocation();
+
+		switch (inEvent.getAction())
+		{
+			case MotionEvent.ACTION_DOWN:
+				mMovingPlayer = landingPoint.equals(playerPoint);
+				break;
+		
+			case MotionEvent.ACTION_UP:
+
+				if (mMovingPlayer)
+			   	{
+					int dx = 0;
+					int dy = 0;
+					if (landingPoint.x == playerPoint.x) {
+					   if (landingPoint.y > playerPoint.y)
+							dy = 1;
+					   else if (landingPoint.y < playerPoint.y)
+							dy = -1;
+					} else if (landingPoint.y == playerPoint.y) {
+					   if (landingPoint.x > playerPoint.x)
+							dx = 1;
+					   else if (landingPoint.x < playerPoint.x)
+							dx = -1;
+					}
+
+					mPlayer.move(dx, dy, mBoard.getRect());
+				} else
+					mThread.drawTargetLine(-1, -1);
+				mMovingPlayer = false;
+				break;
+
+			default:
+				if (!mMovingPlayer)
+					mThread.drawTargetLine((int)inEvent.getX(), (int)inEvent.getY());
 		}
 
-		if (inEvent.getPointerCount() > 1) {
+		if (inEvent.getPointerCount() > 1)
 			mEnemy.moveTo(mBoard.width() - 1, mBoard.height() - 1);
-		}
 
 		return true;
 	}
 
+	boolean mMovingPlayer;
 	private GameBoard mBoard;
 	private Unit mPlayer;
 	private Unit mEnemy;
