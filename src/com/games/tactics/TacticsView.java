@@ -153,22 +153,8 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 				}
 			}
 
-			Paint playerPaint = new Paint();
-            playerPaint.setAntiAlias(true);
-			playerPaint.setColor(Color.BLUE);
-			playerPaint.setStyle(Paint.Style.STROKE);
-
-			RectF playerRect = new RectF(boardToScreen(mPlayer.getLocation()));
-			inCanvas.drawOval(playerRect, playerPaint);
-
-			Paint enemyPaint = new Paint();
-            enemyPaint.setAntiAlias(true);
-			enemyPaint.setColor(Color.GREEN);
-			enemyPaint.setStyle(Paint.Style.STROKE);
-
-			RectF enemyRect = new RectF(boardToScreen(mEnemy.getLocation()));
-			//Log.w(this.getClass().getName(), mEnemy.getLocation().toString());
-			inCanvas.drawOval(enemyRect, enemyPaint);
+			drawUnit(mPlayer);
+			drawUnit(mEnemy);
 
 			if (mLineEnd.x >= 0) {
 				Paint linePaint = new Paint();
@@ -182,6 +168,18 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 
 				inCanvas.drawLine(playerRect.centerX(), playerRect.centerY(), mLineEnd.x, mLineEnd.y, linePaint);
 			}
+		}
+
+		private void drawUnit(Unit inUnit)
+		{
+			Drawable unitImage = 
+			Paint playerPaint = new Paint();
+            playerPaint.setAntiAlias(true);
+			playerPaint.setColor(Color.BLUE);
+			playerPaint.setStyle(Paint.Style.STROKE);
+
+			RectF playerRect = new RectF(boardToScreen(inUnit.getLocation()));
+			inCanvas.drawOval(playerRect, playerPaint);
 		}
 
         public void setSurfaceSize(int inWidth, int inHeight)
