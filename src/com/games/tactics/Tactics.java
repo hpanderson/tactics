@@ -7,6 +7,8 @@ import android.view.View;
 import android.view.View.OnTouchListener;
 import android.view.MotionEvent;
 import android.graphics.Point;
+import android.graphics.PointF;
+import android.graphics.Rect;
 
 import com.games.tactics.TacticsView.TacticsThread;
 
@@ -32,6 +34,8 @@ public class Tactics extends Activity implements OnTouchListener
 		mThread = mTacticsView.getThread();
 
 		mBoard = new GameBoard(6, 10);
+		mBoard.mapTerrain(GameBoard.TerrainType.OUTSIDE, R.drawable.soilcracked);
+
 		mPlayer = new Unit(R.drawable.player);
 		mEnemy = new Unit(R.drawable.enemy);
 		mEnemy.moveTo(mBoard.width() - 1, mBoard.height() - 1); // move to opposite end of board
@@ -45,40 +49,33 @@ public class Tactics extends Activity implements OnTouchListener
 	{
 		Point landingPoint = mThread.screenToBoard(new Point((int)inEvent.getX(), (int)inEvent.getY()));
 		Point playerPoint = mPlayer.getLocation();
-
+		boolean onPlayer = landingPoint.equals(playerPoint);
 		switch (inEvent.getAction())
 		{
 			case MotionEvent.ACTION_DOWN:
-				mMovingPlayer = landingPoint.equals(playerPoint);
+				mThread.setMovingPlayer(onPlayer);
 				break;
 		
 			case MotionEvent.ACTION_UP:
 
-				if (mMovingPlayer)
-			   	{
-					int dx = 0;
-					int dy = 0;
-					if (landingPoint.x == playerPoint.x) {
-					   if (landingPoint.y > playerPoint.y)
-							dy = 1;
-					   else if (landingPoint.y < playerPoint.y)
-							dy = -1;
-					} else if (landingPoint.y == playerPoint.y) {
-					   if (landingPoint.x > playerPoint.x)
-							dx = 1;
-					   else if (landingPoint.x < playerPoint.x)
-							dx = -1;
-					}
+				if (mThread.getMovingPlayer() && !onPlayer) {
+					double angle = mThread.getUnitAngle(mPlayer, new PointF(inEvent.getX(), inEvent.getY()));
+					mPlayer.move(angle, mBoard.getRect());
+				}
 
-					mPlayer.move(dx, dy, mBoard.getRect());
-				} else
-					mThread.drawTargetLine(-1, -1);
-				mMovingPlayer = false;
+				mThread.setTarget(-1, -1);
+				mThread.setMovingPlayer(false);
 				break;
 
 			default:
-				if (!mMovingPlayer)
-					mThread.drawTargetLine((int)inEvent.getX(), (int)inEvent.getY());
+				break;
+		}
+
+		if (inEvent.getAction() != MotionEvent.ACTION_UP) {
+			if (onPlayer)
+				mThread.setTarget(-1, -1); // don't display ghost if user is touching the player
+			else
+				mThread.setTarget(inEvent.getX(), inEvent.getY());
 		}
 
 		if (inEvent.getPointerCount() > 1)

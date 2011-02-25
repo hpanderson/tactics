@@ -8,6 +8,7 @@ import android.os.Handler;
 import android.os.Message;
 import android.graphics.Canvas;
 import android.graphics.Point;
+import android.graphics.PointF;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.Paint;
@@ -99,8 +100,10 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 			mCanvasHeight = 0;
 			mCanvasWidth = 0;
 
-			mLineEnd = new Point(-1, -1);
+			mTarget = new PointF(-1, -1);
 			mTileSize = new Point(1, 1);
+
+			mMovingPlayer = false;
 		}
 
         public void run()
@@ -133,51 +136,77 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 
 		public void doDraw(Canvas inCanvas)
 		{
+			// draw black background first
 			inCanvas.drawColor(Color.BLACK);
-
-			Paint rectPaint = new Paint();
-            rectPaint.setAntiAlias(true);
-            rectPaint.setColor(Color.WHITE);
-			rectPaint.setStyle(Paint.Style.STROKE);
-
-			//Log.w(this.getClass().getName(), mTopLeft.toString());
-
-            /*inCanvas.drawLine(mTopLeft.x, mTopLeft.y, mTopRight.x, mTopRight.y, rectPaint);
-            inCanvas.drawLine(mTopRight.x, mTopRight.y, mBottomRight.x, mBottomRight.y, rectPaint);
-            inCanvas.drawLine(mBottomRight.x, mBottomRight.y, mBottomLeft.x, mBottomLeft.y, rectPaint);
-            inCanvas.drawLine(mBottomLeft.x, mBottomLeft.y, mTopLeft.x, mTopLeft.y, rectPaint);*/
 
 			for (int x = 0; x < mBoard.width(); x++) {
 				for (int y = 0; y < mBoard.height(); y++) {
-					Rect tileRect = boardToScreen(new Point(x, y));
-					inCanvas.drawRect(tileRect, rectPaint);
+					drawTile(new Point(x, y), inCanvas);
 				}
 			}
 
 			drawUnit(mPlayer, inCanvas);
 			drawUnit(mEnemy, inCanvas);
 
-			if (mLineEnd.x >= 0)
+			if (mTarget.x >= 0)
 		   	{
-				Rect enemyRect = boardToScreen(mEnemy.getLocation());
-				Rect playerRect = boardToScreen(mPlayer.getLocation());
-				Paint linePaint = new Paint();
-				linePaint.setAntiAlias(true);
+				if (!mMovingPlayer)
+				{
+					// draw target line
+					Rect enemyRect = boardToScreen(mEnemy.getLocation());
+					Rect playerRect = boardToScreen(mPlayer.getLocation());
+					Paint linePaint = new Paint();
+					linePaint.setAntiAlias(true);
 
-				if (enemyRect.contains(mLineEnd.x, mLineEnd.y)) {
-					linePaint.setColor(Color.RED);
-				} else {
-					linePaint.setColor(Color.WHITE);
+					if (enemyRect.contains((int)mTarget.x, (int)mTarget.y)) {
+						linePaint.setColor(Color.RED);
+					} else {
+						linePaint.setColor(Color.WHITE);
+					}
+
+					inCanvas.drawLine(playerRect.centerX(), playerRect.centerY(), mTarget.x, mTarget.y, linePaint);
+				} else
+			   	{
+					double angle = getUnitAngle(mPlayer, mTarget); 
+
+					/*Paint anglePaint = new Paint();
+					anglePaint.setColor(Color.RED);
+					anglePaint.setTextSize(20);
+					inCanvas.drawText(Double.toString(angle), 20, 20, anglePaint);*/
+
+					// draw ghost of player to show where move will result
+					// don't need a full copy of the player, just the resource id and location
+					Unit playerGhost = new Unit(mPlayer.getResourceId());
+					playerGhost.moveTo(mPlayer.getLocation());
+					playerGhost.move(angle, mBoard.getRect());
+					int alpha = 100;
+					drawUnit(playerGhost, inCanvas, alpha);
 				}
-
-				inCanvas.drawLine(playerRect.centerX(), playerRect.centerY(), mLineEnd.x, mLineEnd.y, linePaint);
 			}
 		}
 
-		private void drawUnit(Unit inUnit, Canvas inCanvas)
+		private void drawTile(Point inPoint, Canvas inCanvas)
+		{
+			Drawable tileImage = mContext.getResources().getDrawable(mBoard.getResourceId(inPoint)); 
+			Rect tileRect = boardToScreen(inPoint);
+			tileImage.setBounds(tileRect);
+			tileImage.draw(inCanvas);
+
+			// draw light gray grid
+			Paint rectPaint = new Paint();
+            rectPaint.setAntiAlias(true);
+            rectPaint.setColor(Color.GRAY);
+			rectPaint.setStyle(Paint.Style.STROKE);
+
+			inCanvas.drawRect(tileRect, rectPaint);
+		}
+
+		private void drawUnit(Unit inUnit, Canvas inCanvas) { drawUnit(inUnit, inCanvas, 255); }
+		private void drawUnit(Unit inUnit, Canvas inCanvas, int inAlpha)
 		{
 			Drawable unitImage = mContext.getResources().getDrawable(inUnit.getResourceId()); 
 			Rect unitRect = new Rect(boardToScreen(inUnit.getLocation()));
+			unitImage.setAlpha(inAlpha);
 			unitImage.setBounds(unitRect);
 			unitImage.draw(inCanvas);
 		}
@@ -194,22 +223,28 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 			}
 		}
 
-		public void drawTargetLine(int inX, int inY)
+		public double getUnitAngle(Unit inUnit, PointF inPoint)
 		{
-			mLineEnd = new Point(inX, inY);
+			Rect unitRect = mThread.boardToScreen(inUnit.getLocation());
+			double dx = inPoint.x - unitRect.centerX();
+			double dy = inPoint.y - unitRect.centerY();
+			double angle = Math.atan2(dy, dx);
+			angle *= 180 / Math.PI;
+			return angle;
 		}
 
-		public void setPlayer(Unit inPlayer)
+		public void setTarget(double inX, double inY)
 		{
-			mPlayer = inPlayer;
+			mTarget = new PointF((float)inX, (float)inY);
 		}
+		
+		public void setMovingPlayer(boolean inMoving) { mMovingPlayer = inMoving; }
+		public boolean getMovingPlayer() { return mMovingPlayer; }
 
-		public void setEnemy(Unit inEnemy)
-		{
-			mEnemy = inEnemy;
-		}
+		public void setPlayer(Unit inPlayer) { mPlayer = inPlayer; }
+		public void setEnemy(Unit inEnemy) { mEnemy = inEnemy; }
 
-		public void setGameBoard(GameBoard inBoard)
+		public void setGameBoard(GameBoard inBoard) 
 		{
 			mBoard = inBoard;
 
@@ -278,7 +313,8 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 
 		private boolean mRunning;
 
-		private Point mLineEnd;
+		private PointF mTarget;
+		private boolean mMovingPlayer;
 
 		private long mTime;
 

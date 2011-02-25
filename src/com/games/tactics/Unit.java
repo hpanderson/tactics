@@ -24,6 +24,27 @@ class Unit
 
 	public Point getLocation() { return mLocation; }
 
+	public void move(double inAngle, Rect inBounds)
+	{
+		move(inAngle, 1, inBounds);
+	}
+
+	public void move(double inAngle, int inMagnitude, Rect inBounds)
+	{
+		Point delta = new Point(0, 0);
+		if (inAngle >= -67.5 && inAngle <= 67.5)
+			delta.x = inMagnitude; // move right
+		if (inAngle >= 22.5 && inAngle <= 157.5)
+			delta.y = inMagnitude; // move down
+		if (inAngle >= -157.5 && inAngle <= -22.5)
+			delta.y = -inMagnitude; // move up
+		if (inAngle >= 112.5 || inAngle <= -112.5)
+			delta.x = -inMagnitude; // move left
+		move(delta, inBounds);
+	}
+
+	public void move(Point inDelta) { move(inDelta.x, inDelta.y); }
+	public void move(Point inDelta, Rect inBounds) { move(inDelta.x, inDelta.y, inBounds); }
 	public void move(int inDX, int inDY) { mLocation.offset(inDX, inDY); }
 
 	public void move(int inDX, int inDY, Rect inBounds)
@@ -35,6 +56,7 @@ class Unit
 		mLocation.y = Math.min(inBounds.bottom - 1, mLocation.y);
 	}
 
+	public void moveTo(Point inPoint) { moveTo(inPoint.x, inPoint.y); }
 	public void moveTo(int inX, int inY) { mLocation.x = inX; mLocation.y = inY; }
 
 	public void setResourceId(int inId) { mResourceId = inId; }
