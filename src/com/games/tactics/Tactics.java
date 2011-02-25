@@ -32,8 +32,8 @@ public class Tactics extends Activity implements OnTouchListener
 		mThread = mTacticsView.getThread();
 
 		mBoard = new GameBoard(6, 10);
-		mPlayer = new Unit();
-		mEnemy = new Unit();
+		mPlayer = new Unit(R.drawable.player);
+		mEnemy = new Unit(R.drawable.enemy);
 		mEnemy.moveTo(mBoard.width() - 1, mBoard.height() - 1); // move to opposite end of board
 		mThread.setGameBoard(mBoard);
 		mThread.setPlayer(mPlayer);

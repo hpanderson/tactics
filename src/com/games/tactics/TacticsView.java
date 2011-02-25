@@ -12,6 +12,7 @@ import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.Paint;
 import android.graphics.Color;
+import android.graphics.drawable.Drawable;
 import android.util.Log;
 
 class TacticsView extends SurfaceView implements SurfaceHolder.Callback
@@ -153,10 +154,13 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 				}
 			}
 
-			drawUnit(mPlayer);
-			drawUnit(mEnemy);
+			drawUnit(mPlayer, inCanvas);
+			drawUnit(mEnemy, inCanvas);
 
-			if (mLineEnd.x >= 0) {
+			if (mLineEnd.x >= 0)
+		   	{
+				Rect enemyRect = boardToScreen(mEnemy.getLocation());
+				Rect playerRect = boardToScreen(mPlayer.getLocation());
 				Paint linePaint = new Paint();
 				linePaint.setAntiAlias(true);
 
@@ -170,16 +174,12 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 			}
 		}
 
-		private void drawUnit(Unit inUnit)
+		private void drawUnit(Unit inUnit, Canvas inCanvas)
 		{
-			Drawable unitImage = 
-			Paint playerPaint = new Paint();
-            playerPaint.setAntiAlias(true);
-			playerPaint.setColor(Color.BLUE);
-			playerPaint.setStyle(Paint.Style.STROKE);
-
-			RectF playerRect = new RectF(boardToScreen(inUnit.getLocation()));
-			inCanvas.drawOval(playerRect, playerPaint);
+			Drawable unitImage = mContext.getResources().getDrawable(inUnit.getResourceId()); 
+			Rect unitRect = new Rect(boardToScreen(inUnit.getLocation()));
+			unitImage.setBounds(unitRect);
+			unitImage.draw(inCanvas);
 		}
 
         public void setSurfaceSize(int inWidth, int inHeight)
