@@ -16,6 +16,9 @@ import android.graphics.Color;
 import android.graphics.drawable.Drawable;
 import android.util.Log;
 
+import java.util.Vector;
+import java.util.Iterator;
+
 class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 {
     public TacticsView(Context inContext, AttributeSet inAttrs)
@@ -104,6 +107,8 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 			mTileSize = new Point(1, 1);
 
 			mMovingPlayer = false;
+
+			mEnemies = new Vector<Unit>();
 		}
 
         public void run()
@@ -146,23 +151,29 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 			}
 
 			drawUnit(mPlayer, inCanvas);
-			drawUnit(mEnemy, inCanvas);
+			for (Iterator iter = mEnemies.iterator(); iter.hasNext();)
+				drawUnit((Unit)iter.next(), inCanvas);
+
+			Paint APPaint = new Paint();
+			APPaint.setColor(Color.RED);
+			APPaint.setTextSize(20);
+			inCanvas.drawText(Double.toString(mPlayer.getAPRemaining()), 20, 20, APPaint);
 
 			if (mTarget.x >= 0)
 		   	{
 				if (!mMovingPlayer)
 				{
 					// draw target line
-					Rect enemyRect = boardToScreen(mEnemy.getLocation());
+					//Rect enemyRect = boardToScreen(mEnemy.getLocation());
 					Rect playerRect = boardToScreen(mPlayer.getLocation());
 					Paint linePaint = new Paint();
 					linePaint.setAntiAlias(true);
 
-					if (enemyRect.contains((int)mTarget.x, (int)mTarget.y)) {
+					/*if (enemyRect.contains((int)mTarget.x, (int)mTarget.y)) {
 						linePaint.setColor(Color.RED);
-					} else {
+					} else {*/
 						linePaint.setColor(Color.WHITE);
-					}
+					//}
 
 					inCanvas.drawLine(playerRect.centerX(), playerRect.centerY(), mTarget.x, mTarget.y, linePaint);
 				} else
@@ -242,7 +253,7 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 		public boolean getMovingPlayer() { return mMovingPlayer; }
 
 		public void setPlayer(Unit inPlayer) { mPlayer = inPlayer; }
-		public void setEnemy(Unit inEnemy) { mEnemy = inEnemy; }
+		public void addEnemy(Unit inEnemy) { mEnemies.add(inEnemy); }
 
 		public void setGameBoard(GameBoard inBoard) 
 		{
@@ -254,7 +265,7 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 
 		private void updatePosition()
 		{
-			mEnemy.move(getDelta(), getDelta(), mBoard.getRect());
+			//mEnemy.move(getDelta(), getDelta(), mBoard.getRect());
 		}
 
 		private int getDelta()
@@ -320,6 +331,6 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 
 		private GameBoard mBoard;
 		private Unit mPlayer;
-		private Unit mEnemy;
+		private Vector<Unit> mEnemies;
 	}
 }

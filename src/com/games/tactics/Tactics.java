@@ -3,9 +3,14 @@ package com.games.tactics;
 import android.app.Activity;
 import android.os.Bundle;
 import android.util.Log;
+import android.content.res.Resources;
+
 import android.view.View;
 import android.view.View.OnTouchListener;
 import android.view.MotionEvent;
+import android.view.Menu;
+import android.view.MenuItem;
+import android.view.MenuInflater;
 import android.graphics.Point;
 import android.graphics.PointF;
 import android.graphics.Rect;
@@ -33,15 +38,20 @@ public class Tactics extends Activity implements OnTouchListener
 		mTacticsView.setOnTouchListener(this);
 		mThread = mTacticsView.getThread();
 
-		mBoard = new GameBoard(6, 10);
-		mBoard.mapTerrain(GameBoard.TerrainType.OUTSIDE, R.drawable.soilcracked);
+		Resources res = getResources();
+		mBoard = new GameBoard(res.getInteger(R.integer.board_width), res.getInteger(R.integer.board_height));
+		mBoard.mapTerrain(GameBoard.TerrainType.OUTSIDE, R.drawable.tile_soil_cracked);
 
-		mPlayer = new Unit(R.drawable.player);
-		mEnemy = new Unit(R.drawable.enemy);
-		mEnemy.moveTo(mBoard.width() - 1, mBoard.height() - 1); // move to opposite end of board
+		mPlayer = new Unit(R.drawable.unit_player);
+		mPlayer.setActionPoints(5);
+
+		for (int i = 0; i < res.getInteger(R.integer.enemy_count); i++) {
+			Unit enemy = new Unit(R.drawable.unit_enemy);
+			enemy.moveTo(mBoard.width() - (1 + i), mBoard.height() - 1); // move to opposite end of board
+			mThread.addEnemy(enemy);
+		}
 		mThread.setGameBoard(mBoard);
 		mThread.setPlayer(mPlayer);
-		mThread.setEnemy(mEnemy);
 		mMovingPlayer = false;
 	}
 
@@ -53,7 +63,8 @@ public class Tactics extends Activity implements OnTouchListener
 		switch (inEvent.getAction())
 		{
 			case MotionEvent.ACTION_DOWN:
-				mThread.setMovingPlayer(onPlayer);
+				if (mPlayer.hasAP())
+					mThread.setMovingPlayer(onPlayer);
 				break;
 		
 			case MotionEvent.ACTION_UP:
@@ -78,16 +89,32 @@ public class Tactics extends Activity implements OnTouchListener
 				mThread.setTarget(inEvent.getX(), inEvent.getY());
 		}
 
-		if (inEvent.getPointerCount() > 1)
-			mEnemy.moveTo(mBoard.width() - 1, mBoard.height() - 1);
-
 		return true;
+	}
+
+	@Override
+	public boolean onCreateOptionsMenu(Menu inMenu)
+	{
+		MenuInflater inflater = getMenuInflater();
+		inflater.inflate(R.menu.main, inMenu);
+		return true;
+	}
+
+	@Override
+	public boolean onOptionsItemSelected(MenuItem inItem)
+	{
+		switch (inItem.getItemId())
+		{
+			case R.id.end_turn:
+				return true;
+			default:
+				return super.onOptionsItemSelected(inItem);
+		}
 	}
 
 	boolean mMovingPlayer;
 	private GameBoard mBoard;
 	private Unit mPlayer;
-	private Unit mEnemy;
 	private TacticsView mTacticsView;
 	private TacticsThread mThread;
 }

@@ -13,13 +13,15 @@ class Unit
 	public Unit(int inResourceId)
 	{
 		mLocation = new Point(0, 0);
-		mActionPoints = 10;
+		mAPTotal = 10;
+		mAPRemaining = mAPTotal;
 		mInventorySpace = 5;
 		mInventory = new int[mInventorySpace];
 		for (int i = 0; i < mInventorySpace; i++)
 			mInventory[i] = 0;
 
 		mResourceId = inResourceId;
+		mIsPlayerControlled = false;
 	}
 
 	public Point getLocation() { return mLocation; }
@@ -45,15 +47,19 @@ class Unit
 
 	public void move(Point inDelta) { move(inDelta.x, inDelta.y); }
 	public void move(Point inDelta, Rect inBounds) { move(inDelta.x, inDelta.y, inBounds); }
-	public void move(int inDX, int inDY) { mLocation.offset(inDX, inDY); }
-
 	public void move(int inDX, int inDY, Rect inBounds)
 	{
-		mLocation.offset(inDX, inDY);
+		move(inDX, inDY);
 		mLocation.x = Math.max(inBounds.left, mLocation.x);
 		mLocation.x = Math.min(inBounds.right - 1, mLocation.x);
 		mLocation.y = Math.max(inBounds.top, mLocation.y);
 		mLocation.y = Math.min(inBounds.bottom - 1, mLocation.y);
+	}
+
+	public void move(int inDX, int inDY)
+	{
+	   	mLocation.offset(inDX, inDY);
+		mAPRemaining -= Math.max(inDX, inDY);
 	}
 
 	public void moveTo(Point inPoint) { moveTo(inPoint.x, inPoint.y); }
@@ -62,10 +68,25 @@ class Unit
 	public void setResourceId(int inId) { mResourceId = inId; }
 	public int getResourceId() { return mResourceId; }
 
+	public void setActionPoints(int inAP)
+	{
+		mAPTotal = inAP;
+		mAPRemaining = mAPTotal;
+	}
+
+	public int getAPRemaining() { return mAPRemaining; }
+	public boolean hasAP() { return mAPRemaining > 0; }
+	public void useAP(int inUsed) { mAPRemaining = Math.min(0, mAPRemaining - inUsed); }
+
 	private Point mLocation;
-	private int mActionPoints;
+
+	private int mAPTotal;
+	private int mAPRemaining;
+
 	private int mInventorySpace;
 	private int mResourceId;
 	private int[] mInventory;
+
+	private boolean mIsPlayerControlled;
 }
 
