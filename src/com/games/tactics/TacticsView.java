@@ -14,6 +14,7 @@ import android.graphics.RectF;
 import android.graphics.Paint;
 import android.graphics.Color;
 import android.graphics.drawable.Drawable;
+import android.graphics.BitmapFactory;
 import android.util.Log;
 
 import java.util.Vector;
@@ -26,10 +27,7 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
         super(inContext, inAttrs);
 		getHolder().addCallback(this); // register our interest in hearing about changes to our surface
         setFocusable(true); // make sure we get key events
-    }
 
-	public void NewGame()
-	{
         mThread = new TacticsThread(getHolder(), getContext(), new Handler()
 		{
             @Override
@@ -38,10 +36,11 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
                 mStatusText.setText(m.getData().getString("text"));*/
             }
         });
+    }
 
-		//this wont work if the surface isn't created yet!
-		mThread.setRunning(true);
-		mThread.start();
+	public void newGame()
+	{
+		mThread.reset();
 	}
 
     /* Callback invoked when the surface dimensions change. */
@@ -56,10 +55,9 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
      */
     public void surfaceCreated(SurfaceHolder inHolder)
    	{
-        // start the thread here so that we don't busy-wait in run()
-        // waiting for the surface to be created
-        //mThread.setRunning(true);
-        //mThread.start();
+        // start the thread here so that we don't busy-wait in run() waiting for the surface to be created
+        mThread.setRunning(true);
+        mThread.start();
     }
 
     /*
@@ -69,8 +67,7 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
      */
     public void surfaceDestroyed(SurfaceHolder inHolder)
    	{
-        // we have to tell thread to shut down & wait for it to finish, or else
-        // it might touch the Surface after we return and explode
+        // we have to tell thread to shut down & wait for it to finish, or else it might touch the Surface after we return and explode
         boolean retry = true;
         mThread.setRunning(false);
         while (retry) {
@@ -99,16 +96,20 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 
 			mRunning = false;
 
-			mTime = 0;
-
 			mCanvasHeight = 0;
 			mCanvasWidth = 0;
 
-			mTarget = new PointF(-1, -1);
 			mTileSize = new Point(1, 1);
 
+			reset();
+		}
+		
+		public void reset()
+		{
+			mTarget = new PointF(-1, -1);
 			mMovingPlayer = false;
 
+			mTime = 0;
 			mEnemies = new Vector<Unit>();
 		}
 
@@ -199,18 +200,42 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 
 		private void drawTile(Point inPoint, Canvas inCanvas)
 		{
-			Drawable tileImage = mContext.getResources().getDrawable(mBoard.getResourceId(inPoint)); 
+			/*Bitmap tileImage = BitmapFactory.decodeResource(getResources().getDrawable(mBoard.getResourceId(inPoint)));
+			float verts[] = {
+			inCanvas.drawBitmapMesh(tileImage, meshWidth, meshHeight, verts, vertOffset, null, 0, null);*/
+
 			Rect tileRect = boardToScreen(inPoint);
+
+			Drawable tileImage = mContext.getResources().getDrawable(mBoard.getResourceId(inPoint)); 
 			tileImage.setBounds(tileRect);
 			tileImage.draw(inCanvas);
 
 			// draw light gray grid
-			Paint rectPaint = new Paint();
-            rectPaint.setAntiAlias(true);
-            rectPaint.setColor(Color.GRAY);
-			rectPaint.setStyle(Paint.Style.STROKE);
+			Paint tilePaint = new Paint();
+            tilePaint.setAntiAlias(true);
+            tilePaint.setColor(Color.GRAY);
+			tilePaint.setStyle(Paint.Style.STROKE);
 
-			inCanvas.drawRect(tileRect, rectPaint);
+			RectF tileRectF = new RectF(tileRect);
+
+			// the lines A B and C form a triangle at the corner of the hex, from which all points in the hex are calculated
+			float B = tileRectF.height() / (float)2.0;
+			float C = tileRectF.width() / (float)2.0;
+			float A = (float)0.5 * C;
+
+			// starting with the leftmost point and going clockwise, the points are
+			// P1(0, B) - P2 (A, 0)
+			inCanvas.drawLine(tileRectF.left, tileRectF.top + B,  tileRectF.left + A, tileRectF.top, tilePaint);
+			// P2(A, 0) - P3 (A+C, 0)
+			inCanvas.drawLine(tileRectF.left + A, tileRectF.top, tileRectF.left + A + C, tileRectF.top, tilePaint);
+			// P3(A+C, 0) - P4(2*C, B)
+			inCanvas.drawLine(tileRectF.left + A + C, tileRectF.top, tileRectF.left + (2*C), tileRectF.top + B, tilePaint);
+			// P4(2*C, B) - P5(A+C, 2*B)
+			inCanvas.drawLine(tileRectF.left + (2*C), tileRectF.top + B, tileRectF.left + A + C, tileRectF.top + (2*B), tilePaint);
+			// P5(A+C, 2*B) - P6(A, 2*B)
+			inCanvas.drawLine(tileRectF.left + A + C, tileRectF.top + (2*B), tileRectF.left + A, tileRectF.top + (2*B), tilePaint);
+			// P6(A, 2*B) - P1(0, B)
+			inCanvas.drawLine(tileRectF.left + A, tileRectF.top + (2*B), tileRectF.left, tileRectF.top + B, tilePaint);
 		}
 
 		private void drawUnit(Unit inUnit, Canvas inCanvas) { drawUnit(inUnit, inCanvas, 255); }
@@ -229,9 +254,7 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 			{
 				mCanvasHeight = inHeight;
 				mCanvasWidth = inWidth;
-
-				if (mBoard.width() > 0 && mBoard.height() > 0)
-					mTileSize = new Point(mCanvasWidth / mBoard.width(), mCanvasHeight / mBoard.height());
+				updateTileSize();
 			}
 		}
 
@@ -259,9 +282,19 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 		public void setGameBoard(GameBoard inBoard) 
 		{
 			mBoard = inBoard;
+			updateTileSize();
+		}
 
+		private void updateTileSize()
+		{
 			if (mBoard.width() > 0 && mBoard.height() > 0)
-				mTileSize = new Point(mCanvasWidth / mBoard.width(), mCanvasHeight / mBoard.height());
+		   	{
+				mTileSize = new Point();
+			   	// each hex overlaps by 25%, except the last tile so x = .75 * width * tileCount + .25 * width
+				mTileSize.x = (int)((double)mCanvasWidth / (0.75 * (double)mBoard.width() + 0.25));
+				// need to account for even columns shifted down 25% 
+				mTileSize.y = (int)((double)mCanvasHeight / ((double)mBoard.height() + 0.25));
+			}
 		}
 
 		private void updatePosition()
@@ -283,8 +316,11 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 		{
 			Rect outRect = new Rect();
 
-			outRect.left = inPoint.x * mTileSize.x;
+			outRect.left = inPoint.x * (int)(mTileSize.x * 0.75); // 25% overlap
 			outRect.top = inPoint.y * mTileSize.y;
+			if (inPoint.x % 2 != 0) // odd col? need to shift down
+				outRect.top += (mTileSize.y / 2.0);
+
 			outRect.right = outRect.left + mTileSize.x;
 			outRect.bottom = outRect.top + mTileSize.y;
 			return outRect;
