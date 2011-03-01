@@ -36,6 +36,12 @@ public class Tactics extends Activity implements OnTouchListener
         Log.w(this.getClass().getName(), "Created tactics view");
 	
 		mTacticsView.setOnTouchListener(this);
+		NewGame();
+	}
+
+	private void NewGame()
+	{
+		mTacticsView.NewGame();
 		mThread = mTacticsView.getThread();
 
 		Resources res = getResources();
@@ -106,6 +112,9 @@ public class Tactics extends Activity implements OnTouchListener
 		switch (inItem.getItemId())
 		{
 			case R.id.end_turn:
+				return true;
+			case R.id.new_game:
+				NewGame();
 				return true;
 			default:
 				return super.onOptionsItemSelected(inItem);

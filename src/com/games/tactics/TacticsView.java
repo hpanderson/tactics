@@ -24,13 +24,13 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
     public TacticsView(Context inContext, AttributeSet inAttrs)
    	{
         super(inContext, inAttrs);
+		getHolder().addCallback(this); // register our interest in hearing about changes to our surface
+        setFocusable(true); // make sure we get key events
+    }
 
-        // register our interest in hearing about changes to our surface
-        SurfaceHolder holder = getHolder();
-        holder.addCallback(this);
-
-        // create thread only; it's started in surfaceCreated()
-        mThread = new TacticsThread(holder, inContext, new Handler()
+	public void NewGame()
+	{
+        mThread = new TacticsThread(getHolder(), getContext(), new Handler()
 		{
             @Override
             public void handleMessage(Message m) {
@@ -39,9 +39,10 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
             }
         });
 
-
-        setFocusable(true); // make sure we get key events
-    }
+		//this wont work if the surface isn't created yet!
+		mThread.setRunning(true);
+		mThread.start();
+	}
 
     /* Callback invoked when the surface dimensions change. */
     public void surfaceChanged(SurfaceHolder inHolder, int inFormat, int inWidth, int inHeight)
@@ -57,8 +58,8 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
    	{
         // start the thread here so that we don't busy-wait in run()
         // waiting for the surface to be created
-        mThread.setRunning(true);
-        mThread.start();
+        //mThread.setRunning(true);
+        //mThread.start();
     }
 
     /*
