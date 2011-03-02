@@ -13,7 +13,6 @@ import android.view.MenuItem;
 import android.view.MenuInflater;
 import android.graphics.Point;
 import android.graphics.PointF;
-import android.graphics.Rect;
 
 import com.games.tactics.TacticsView.TacticsThread;
 

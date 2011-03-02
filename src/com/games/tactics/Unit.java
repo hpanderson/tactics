@@ -21,7 +21,7 @@ class Unit
 			mInventory[i] = 0;
 
 		mResourceId = inResourceId;
-		mIsPlayerControlled = false;
+		//mIsPlayerControlled = false;
 	}
 
 	public Point getLocation() { return mLocation; }
@@ -87,6 +87,6 @@ class Unit
 	private int mResourceId;
 	private int[] mInventory;
 
-	private boolean mIsPlayerControlled;
+	//private boolean mIsPlayerControlled;
 }
 

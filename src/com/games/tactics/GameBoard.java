@@ -44,7 +44,7 @@ class GameBoard
 		WATER
 	}
 
-	private EnumMap mTerrainResources;
+	private EnumMap<TerrainType, Integer> mTerrainResources;
 	private Rect mDimensions;
 	private TerrainType[][] mTerrainType;
 }
