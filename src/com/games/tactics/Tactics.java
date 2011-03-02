@@ -32,7 +32,7 @@ public class Tactics extends Activity implements OnTouchListener
         setContentView(R.layout.main);
 
 		mTacticsView = (TacticsView) findViewById(R.id.tactics);
-        Log.w(this.getClass().getName(), "Created tactics view");
+        Log.i(this.getClass().getName(), "Created tactics view");
 	
 		mTacticsView.setOnTouchListener(this);
 		newGame();
@@ -55,14 +55,14 @@ public class Tactics extends Activity implements OnTouchListener
 			enemy.moveTo(mBoard.width() - (1 + i), mBoard.height() - 1); // move to opposite end of board
 			mThread.addEnemy(enemy);
 		}
-		mThread.setGameBoard(mBoard);
+		mTacticsView.setGameBoard(mBoard);
 		mThread.setPlayer(mPlayer);
 		mMovingPlayer = false;
 	}
 
 	public boolean onTouch(View inView, MotionEvent inEvent)
 	{
-		Point landingPoint = mThread.screenToBoard(new Point((int)inEvent.getX(), (int)inEvent.getY()));
+		Point landingPoint = mTacticsView.getLogicalView().physicalToTile(new Point((int)inEvent.getX(), (int)inEvent.getY()));
 		Point playerPoint = mPlayer.getLocation();
 		boolean onPlayer = landingPoint.equals(playerPoint);
 		switch (inEvent.getAction())
@@ -75,7 +75,7 @@ public class Tactics extends Activity implements OnTouchListener
 			case MotionEvent.ACTION_UP:
 
 				if (mThread.getMovingPlayer() && !onPlayer) {
-					double angle = mThread.getUnitAngle(mPlayer, new PointF(inEvent.getX(), inEvent.getY()));
+					double angle = mTacticsView.getLogicalView().getUnitAngle(mPlayer, new PointF(inEvent.getX(), inEvent.getY()));
 					mPlayer.move(angle, mBoard.getRect());
 				}
 

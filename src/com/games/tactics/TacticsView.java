@@ -4,6 +4,7 @@ import android.view.SurfaceView;
 import android.view.SurfaceHolder;
 import android.content.Context;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.os.Handler;
 import android.os.Message;
 import android.graphics.Canvas;
@@ -34,6 +35,9 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
                 mStatusText.setText(m.getData().getString("text"));*/
             }
         });
+
+        mLogicalView = new LogicalView();
+		mThread.setLogicalView(mLogicalView);
     }
 
 	public void newGame()
@@ -41,15 +45,16 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 		mThread.reset();
 	}
 
-    /* Callback invoked when the surface dimensions change. */
+    /**
+     * Callback invoked when the surface dimensions change.
+     */
     public void surfaceChanged(SurfaceHolder inHolder, int inFormat, int inWidth, int inHeight)
    	{
-        mThread.setSurfaceSize(inWidth, inHeight);
+        mLogicalView.setPhysicalSize(inWidth, inHeight);
     }
 
-    /*
-     * Callback invoked when the Surface has been created and is ready to be
-     * used.
+    /**
+     * Callback invoked when the Surface has been created and is ready to be used.
      */
     public void surfaceCreated(SurfaceHolder inHolder)
    	{
@@ -77,12 +82,17 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
         }
     }
 
-	public TacticsThread getThread()
+	public TacticsThread getThread() { return mThread; }	
+	public LogicalView getLogicalView() { return mLogicalView; }
+	
+	public void setGameBoard(GameBoard inBoard) 
 	{
-		return mThread;
+		mLogicalView.setBoardSize(inBoard.width(), inBoard.height());
+		mThread.setGameBoard(inBoard);
 	}
 
     private TacticsThread mThread;
+    private LogicalView mLogicalView;
 
     class TacticsThread extends Thread
    	{
@@ -93,21 +103,19 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 
 			mRunning = false;
 
-			mCanvasHeight = 0;
-			mCanvasWidth = 0;
-
-			mTileSize = new Point(1, 1);
-
 			reset();
 		}
 		
-		public void reset()
+        private void reset()
 		{
-			mTarget = new PointF(-1, -1);
-			mMovingPlayer = false;
-
-			mTime = 0;
-			mEnemies = new Vector<Unit>();
+			synchronized(mSurfaceHolder)
+			{
+				mTarget = new PointF(-1, -1);
+				mMovingPlayer = false;
+	
+				mTime = 0;
+				mEnemies = new Vector<Unit>();
+			}
 		}
 
         public void run()
@@ -122,7 +130,7 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 				   	{
 						long now = System.currentTimeMillis();
                         if (now - mTime > 2000) {
-						   	updatePosition();
+						   	//updatePosition();
 							mTime = now;
 						}
 						doDraw(c);
@@ -132,8 +140,9 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
                     // do this in a finally so that if an exception is thrown
                     // during the above, we don't leave the Surface in an
                     // inconsistent state
-                    if (c != null)
+                    if (c != null) {
                         mSurfaceHolder.unlockCanvasAndPost(c);
+                    }
                 }
 			}
 		}
@@ -164,7 +173,7 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 				{
 					// draw target line
 					//Rect enemyRect = boardToScreen(mEnemy.getLocation());
-					Rect playerRect = boardToScreen(mPlayer.getLocation());
+					Rect playerRect = mLogicalView.tileToPhysical(mPlayer.getLocation());
 					Paint linePaint = new Paint();
 					linePaint.setAntiAlias(true);
 
@@ -177,7 +186,7 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 					inCanvas.drawLine(playerRect.centerX(), playerRect.centerY(), mTarget.x, mTarget.y, linePaint);
 				} else
 			   	{
-					double angle = getUnitAngle(mPlayer, mTarget); 
+					double angle = mLogicalView.getUnitAngle(mPlayer, mTarget); 
 
 					/*Paint anglePaint = new Paint();
 					anglePaint.setColor(Color.RED);
@@ -207,8 +216,8 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 			float verts[] = {
 			inCanvas.drawBitmapMesh(tileImage, meshWidth, meshHeight, verts, vertOffset, null, 0, null);*/
 
-			Rect tileRect = boardToScreen(inPoint);
-
+			Rect tileRect = mLogicalView.tileToPhysical(inPoint);
+			
 			Drawable tileImage = mContext.getResources().getDrawable(mBoard.getResourceId(inPoint)); 
 			tileImage.setBounds(tileRect);
 			tileImage.draw(inCanvas);
@@ -245,42 +254,18 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 		private void drawUnit(Unit inUnit, Canvas inCanvas, int inAlpha)
 		{
 			Drawable unitImage = mContext.getResources().getDrawable(inUnit.getResourceId()); 
-			Rect unitRect = new Rect(boardToScreen(inUnit.getLocation()));
+			Rect unitRect = new Rect(mLogicalView.tileToPhysical(inUnit.getLocation()));
 			unitImage.setAlpha(inAlpha);
 			unitImage.setBounds(unitRect);
 			unitImage.draw(inCanvas);
 		}
 
-        public void setSurfaceSize(int inWidth, int inHeight)
-	   	{
-			synchronized(mSurfaceHolder)
-			{
-				mCanvasHeight = inHeight;
-				mCanvasWidth = inWidth;
-				updateTileSize();
-			}
-		}
-
-        /**
-         * Gets the angle from a unit to a point on the screen, in radians.
-         * 
-         * @param inUnit
-         * @param inPoint
-         * @return
-         */
-		public double getUnitAngle(Unit inUnit, PointF inPoint)
-		{
-			Rect unitRect = mThread.boardToScreen(inUnit.getLocation());
-			double dx = inPoint.x - unitRect.centerX();
-			double dy = inPoint.y - unitRect.centerY();
-			double angle = Math.atan2(dy, dx);
-			angle *= 180 / Math.PI;
-			return angle;
-		}
-
 		public void setTarget(double inX, double inY)
 		{
-			mTarget = new PointF((float)inX, (float)inY);
+			synchronized(mSurfaceHolder)
+			{
+				mTarget = new PointF((float)inX, (float)inY);
+			}
 		}
 		
 		public void setMovingPlayer(boolean inMoving) { mMovingPlayer = inMoving; }
@@ -289,75 +274,14 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 		public void setPlayer(Unit inPlayer) { mPlayer = inPlayer; }
 		public void addEnemy(Unit inEnemy) { mEnemies.add(inEnemy); }
 
-		public void setGameBoard(GameBoard inBoard) 
+		private void setGameBoard(GameBoard inBoard) 
 		{
 			mBoard = inBoard;
-			updateTileSize();
 		}
-
-		/**
-		 * Calculates the tile size from the physical dimensions.
-		 */
-		private void updateTileSize()
+		
+		private void setLogicalView(LogicalView inLogicalView)
 		{
-			if (mBoard.width() > 0 && mBoard.height() > 0)
-		   	{
-				mTileSize = new Point();
-			   	// each hex overlaps by 25%, except the last tile so x = .75 * width * tileCount + .25 * width
-				mTileSize.x = (int)((double)mCanvasWidth / (0.75 * (double)mBoard.width() + 0.25));
-				// need to account for even columns shifted down 25% 
-				mTileSize.y = (int)((double)mCanvasHeight / ((double)mBoard.height() + 0.25));
-			}
-		}
-
-		private void updatePosition()
-		{
-			//mEnemy.move(getDelta(), getDelta(), mBoard.getRect());
-		}
-
-		/*private int getDelta()
-		{
-			double randomProb = Math.random();
-			if (randomProb > .667)
-				return 1;
-			if (randomProb < .333)
-				return -1;
-			return 0;
-		}*/
-
-		/**
-		 * Converts a game tile coordinate to a physical rectangle.
-		 */
-		private Rect boardToScreen(Point inPoint)
-		{
-			Rect outRect = new Rect();
-
-			outRect.left = inPoint.x * (int)(mTileSize.x * 0.75); // 25% overlap
-			outRect.top = inPoint.y * mTileSize.y;
-			if (inPoint.x % 2 != 0) // odd col? need to shift down
-				outRect.top += (mTileSize.y / 2.0);
-
-			outRect.right = outRect.left + mTileSize.x;
-			outRect.bottom = outRect.top + mTileSize.y;
-			return outRect;
-		}
-
-		/**
-		 * Converts a physical point to a game tile coordinate.
-		 * 
-		 * @param inPoint
-		 * @return
-		 */
-		public Point screenToBoard(Point inPoint)
-		{
-			Point outPoint = new Point();
-
-			if (mTileSize.x == 0 || mTileSize.y == 0)
-				return outPoint;
-
-			outPoint.x = inPoint.x / mTileSize.x;
-			outPoint.y = inPoint.y / mTileSize.y;
-			return outPoint;
+			mLogicalView = inLogicalView;
 		}
 
         /**
@@ -376,10 +300,6 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
         private SurfaceHolder mSurfaceHolder;
         private Context mContext;
 
-		private int mCanvasHeight;
-		private int mCanvasWidth;
-		private Point mTileSize;
-
 		private boolean mRunning;
 
 		private PointF mTarget;
@@ -390,6 +310,8 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 		private GameBoard mBoard;
 		private Unit mPlayer;
 		private Vector<Unit> mEnemies;
+		
+	    private LogicalView mLogicalView;
 	}
 }
 
@@ -402,11 +324,12 @@ class LogicalView
 {
 	LogicalView()
 	{
-		mLogicalDim = new Point(10000, 10000);
+		mLogicalSize = new Point(10000, 10000);
 		mBoardDim = new Point(0, 0);
-		mPhysicalDim = new Point(0, 0);
+		mPhysicalSize = new Point(0, 0);
+		mTileSize = new Point(0, 0);
 		
-		mViewport = new Rect(0, 0, 1000, 1000);
+		mViewport = new Rect(0, 0, 5000, 5000);
 	}
 	
 	/**
@@ -415,9 +338,10 @@ class LogicalView
 	 * @param inWidth
 	 * @param inHeight
 	 */
-	public void setBoardDim(int inWidth, int inHeight)
+	public void setBoardSize(int inWidth, int inHeight)
 	{
 		mBoardDim = new Point(inWidth, inHeight);
+		updateTileSize();
 	}
 	
 	/**
@@ -426,12 +350,55 @@ class LogicalView
 	 * @param inWidth
 	 * @param inHeight
 	 */
-	public void setPhysicalDim(int inWidth, int inHeight)
+	public void setPhysicalSize(int inWidth, int inHeight)
 	{
-		mPhysicalDim = new Point(inWidth, inHeight);
-		//double aspect = (double)inWidth / (double)inHeight;
+		mPhysicalSize = new Point(inWidth, inHeight);
+		double aspect = (double)inWidth / (double)inHeight;
+		double prevAspect = (double)mViewport.width() / (double)mViewport.height();
+
+		mViewport.right = mViewport.left + (int)((double)mViewport.width() * (aspect / prevAspect));
+		//mViewport.bottom = mViewport.top + (int)((double)mViewport.height() / aspect);
+		/*if (aspect > prevAspect) {
+			// new screen is fatter than previous - expand width and contract height to meet new aspect ratio
+			mViewport.right = mViewport.left + (int)((double)mViewport.width() * (aspect / prevAspect));
+			mViewport.bottom = mViewport.top + (int)((double)mViewport.height() / aspect);
+		} else {
+			// new screen is thinner - contract width and expand height
+			mViewport.right = mViewport.left + (int)((double)mViewport.width() * (prevAspect / aspect));
+			mViewport.bottom = mViewport.top + (int)((double)mViewport.height() / aspect);
+		}*/
 		
-		mViewport = new Rect(0, 0, mPhysicalDim.x, mPhysicalDim.y);
+		while (mViewport.right > mLogicalSize.x || mViewport.bottom > mLogicalSize.y)
+		{
+			if (mViewport.right > mLogicalSize.x)
+			{
+				// viewport is off the right side of the screen, try shifting left
+				mViewport.offset(mLogicalSize.x - mViewport.right, 0);
+				
+				if (mViewport.left < 0) {
+					// now it's off the left side, need to reduce the width
+					mViewport.left = 0;
+					mViewport.right = mLogicalSize.x;
+				}
+			}
+	
+			mViewport.bottom = mViewport.top + (int)((double)mViewport.height() / aspect);
+			if (mViewport.bottom > mLogicalSize.y)
+			{
+				//off the bottom of the screen, try shifting up
+				mViewport.offset(0, mLogicalSize.y - mViewport.bottom);
+				
+				if (mViewport.top < 0) {
+					// now it's off the top side, need to reduce the height
+					mViewport.top = 0;
+					mViewport.bottom = mLogicalSize.y;
+					
+					mViewport.right = mViewport.left + (int)((double)mViewport.width() * (aspect / prevAspect));
+				}
+			}
+		}
+		
+		updateTileSize();
 	}
 	
 	/**
@@ -442,7 +409,7 @@ class LogicalView
 	 */
 	public int physicalToLogicalX(int inPhysicalX)
 	{
-		return ((inPhysicalX / mPhysicalDim.x) * mViewport.width()) + mViewport.left;
+		return (int)(((double)inPhysicalX / mPhysicalSize.x) * (double)mViewport.width()) + mViewport.left;
 	}
 
 	/**
@@ -453,7 +420,18 @@ class LogicalView
 	 */
 	public int physicalToLogicalY(int inPhysicalY)
 	{
-		return ((inPhysicalY / mPhysicalDim.y) * mViewport.height()) + mViewport.top;
+		return (int)(((double)inPhysicalY / mPhysicalSize.y) * (double)mViewport.height()) + mViewport.top;
+	}
+	
+	/**
+	 * Converts a physical point to a logical one.
+	 * 
+	 * @param inPoint
+	 * @return
+	 */
+	public Point physicalToLogical(Point inPoint)
+	{
+		return new Point(physicalToLogicalX(inPoint.x), physicalToLogicalY(inPoint.y));
 	}
 	
 	/**
@@ -464,7 +442,7 @@ class LogicalView
 	 */
 	public int logicalToPhysicalX(int inLogicalX)
 	{
-		return (inLogicalX / mViewport.width()) * mPhysicalDim.x;
+		return (int)(((double)inLogicalX / mViewport.width()) * mPhysicalSize.x);
 	}
 
 	/**
@@ -475,13 +453,24 @@ class LogicalView
 	 */
 	public int logicalToPhysicalY(int inLogicalY)
 	{
-		return (inLogicalY / mViewport.height()) * mPhysicalDim.y;
+		return (int)(((double)inLogicalY / mViewport.height()) * mPhysicalSize.y);
 	}
 	
 	/**
-	 * Converts a game tile coordinate to a physical rectangle.
+	 * Gets a logical Rect given a physical one.
+	 * 
+	 * @param inRect
+	 * @return
 	 */
-	/*public Rect boardToScreen(Point inPoint)
+	public Rect logicalToPhysical(Rect inRect)
+	{
+		return new Rect(logicalToPhysicalX(inRect.left), logicalToPhysicalY(inRect.top), logicalToPhysicalX(inRect.right), logicalToPhysicalY(inRect.bottom));
+	}
+
+	/**
+	 * Converts a game tile coordinate to a logical rectangle.
+	 */
+	public Rect tileToLogical(Point inPoint)
 	{
 		Rect outRect = new Rect();
 
@@ -493,11 +482,79 @@ class LogicalView
 		outRect.right = outRect.left + mTileSize.x;
 		outRect.bottom = outRect.top + mTileSize.y;
 		return outRect;
-	}*/
+	}
 
+	/**
+	 * Converts a game tile coordinate to a physical rectangle.
+	 */
+	public Rect tileToPhysical(Point inPoint)
+	{
+		return logicalToPhysical(tileToLogical(inPoint));		
+	}
+
+	/**
+	 * Converts a physical point to a game tile coordinate.
+	 * 
+	 * @param inPoint
+	 * @return
+	 */
+	public Point physicalToTile(Point inPoint)
+	{
+		return logicalToTile(physicalToLogical(inPoint));
+	}
+	
+	/**
+	 * Converts a logical point to a game tile coordinate.
+	 * 
+	 * @param inPoint
+	 * @return
+	 */
+	public Point logicalToTile(Point inPoint)
+	{
+		Point outPoint = new Point();
+
+		if (mTileSize.x == 0 || mTileSize.y == 0)
+			return outPoint;
+
+		outPoint.x = inPoint.x / mTileSize.x;
+		outPoint.y = inPoint.y / mTileSize.y;
+		return outPoint;
+	}
+	
+    /**
+     * Gets the angle from a unit to a physical point on the screen, in radians.
+     * 
+     * @param inUnit
+     * @param inPoint
+     * @return
+     */
+	public double getUnitAngle(Unit inUnit, PointF inPoint)
+	{
+		Rect unitRect = tileToPhysical(inUnit.getLocation());
+		double dx = inPoint.x - unitRect.centerX();
+		double dy = inPoint.y - unitRect.centerY();
+		double angle = Math.atan2(dy, dx);
+		angle *= 180 / Math.PI;
+		return angle;
+	}
+
+	/**
+	 * Calculates the tile size from the logical dimensions.
+	 */
+	private void updateTileSize()
+	{
+		if (mBoardDim.x > 0 && mBoardDim.y > 0)
+	   	{
+			mTileSize = new Point();
+		   	// each hex overlaps by 25%, except the last tile so x = .75 * width * tileCount + .25 * width
+			mTileSize.x = (int)((double)mLogicalSize.x / (0.75 * (double)mBoardDim.x + 0.25));
+			// need to account for even columns shifted down 25% 
+			mTileSize.y = (int)((double)mLogicalSize.y / ((double)mBoardDim.y + 0.25));
+		}
+	}
 	Point mTileSize;
-	Point mLogicalDim;
-	Point mPhysicalDim;
+	Point mLogicalSize;
+	Point mPhysicalSize;
 	Point mBoardDim;
 	Rect mViewport;
 }
