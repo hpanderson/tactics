@@ -160,7 +160,7 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 
 			drawUnit(mPlayer, inCanvas);
 			for (Iterator<Unit> iter = mEnemies.iterator(); iter.hasNext();)
-				drawUnit((Unit)iter.next(), inCanvas);
+				drawUnit(iter.next(), inCanvas);
 
 			Paint APPaint = new Paint();
 			APPaint.setColor(Color.RED);
@@ -324,12 +324,26 @@ class LogicalView
 {
 	LogicalView()
 	{
-		mLogicalSize = new Point(10000, 10000);
-		mBoardDim = new Point(0, 0);
+		mLogicalSize = new Point(0, 0);
+		mBoardSize = new Point(0, 0);
 		mPhysicalSize = new Point(0, 0);
-		mTileSize = new Point(0, 0);
 		
-		mViewport = new Rect(0, 0, 5000, 5000);
+		mTileSize = new Point(256, 256);
+		mTileDistance = 256; // since we are forcing a hex with length = height, we can dictate this (I think?)
+		mTileAngledSide = (mTileSize.x / 2.0) / Math.cos(Math.PI / 6.0); // hypotenuse of corner angle of hex 
+		mTileOverlap = new Point((int)(mTileAngledSide * Math.cos(Math.PI / 3.0)), (int)(mTileSize.y / 2.0));
+		mTileHorizSide = mTileSize.x - (2.0 * mTileOverlap.x);
+		
+		/* This is for a hex with equal side lengths (enclosing rectangle will not be a square)
+		mTileSideLength = 128; 
+		mTileDistance = 256; // this is wrong
+		mTileOverlap = new Point((int)(Math.cos(Math.PI / 3.0) * mTileSideLength), (int)(Math.cos() * mTileSideLength));
+		mTileSize = new Point((int)(mTileSideLength + 2.0 * mTileOverlap.x), (int)(2.0 * mTileOverlap.y));
+		Log.i(this.getClass().getName(), "Tile size: (" + Integer.toString(mTileSize.x) + "," + Integer.toString(mTileSize.y) + ")");
+		Log.i(this.getClass().getName(), "Tile side: " + Integer.toString(mTileSideLength));*/
+		Log.i(this.getClass().getName(), "Tile overlap: (" + Integer.toString(mTileOverlap.x) + "," + Integer.toString(mTileOverlap.y) + ")");
+
+		mViewport = new Rect(mTileSize.x, mTileSize.y, mTileSize.x * 9, mTileSize.y * 11); // default to ~10 tiles
 	}
 	
 	/**
@@ -340,8 +354,15 @@ class LogicalView
 	 */
 	public void setBoardSize(int inWidth, int inHeight)
 	{
-		mBoardDim = new Point(inWidth, inHeight);
-		updateTileSize();
+		mBoardSize = new Point(inWidth, inHeight);
+
+		// it's not 25% - this is wrong, use the mTileOverlap dimensions
+		// each hex overlaps by 25%, except the last tile so x = .75 * width * tileCount + .25 * width
+		mLogicalSize.x = (int)((double)mBoardSize.x * (mTileSize.x * 0.75)) + (int)Math.ceil((mTileSize.x * 0.25));
+		// need to account for even columns shifted down 25% 
+		mLogicalSize.y = mBoardSize.y * mTileSize.y + (int)Math.ceil(mTileSize.y * 0.25);
+				
+		rectifyViewport(-1);
 	}
 	
 	/**
@@ -353,52 +374,9 @@ class LogicalView
 	public void setPhysicalSize(int inWidth, int inHeight)
 	{
 		mPhysicalSize = new Point(inWidth, inHeight);
-		double aspect = (double)inWidth / (double)inHeight;
-		double prevAspect = (double)mViewport.width() / (double)mViewport.height();
 
-		mViewport.right = mViewport.left + (int)((double)mViewport.width() * (aspect / prevAspect));
-		//mViewport.bottom = mViewport.top + (int)((double)mViewport.height() / aspect);
-		/*if (aspect > prevAspect) {
-			// new screen is fatter than previous - expand width and contract height to meet new aspect ratio
-			mViewport.right = mViewport.left + (int)((double)mViewport.width() * (aspect / prevAspect));
-			mViewport.bottom = mViewport.top + (int)((double)mViewport.height() / aspect);
-		} else {
-			// new screen is thinner - contract width and expand height
-			mViewport.right = mViewport.left + (int)((double)mViewport.width() * (prevAspect / aspect));
-			mViewport.bottom = mViewport.top + (int)((double)mViewport.height() / aspect);
-		}*/
-		
-		while (mViewport.right > mLogicalSize.x || mViewport.bottom > mLogicalSize.y)
-		{
-			if (mViewport.right > mLogicalSize.x)
-			{
-				// viewport is off the right side of the screen, try shifting left
-				mViewport.offset(mLogicalSize.x - mViewport.right, 0);
-				
-				if (mViewport.left < 0) {
-					// now it's off the left side, need to reduce the width
-					mViewport.left = 0;
-					mViewport.right = mLogicalSize.x;
-				}
-			}
-	
-			mViewport.bottom = mViewport.top + (int)((double)mViewport.height() / aspect);
-			if (mViewport.bottom > mLogicalSize.y)
-			{
-				//off the bottom of the screen, try shifting up
-				mViewport.offset(0, mLogicalSize.y - mViewport.bottom);
-				
-				if (mViewport.top < 0) {
-					// now it's off the top side, need to reduce the height
-					mViewport.top = 0;
-					mViewport.bottom = mLogicalSize.y;
-					
-					mViewport.right = mViewport.left + (int)((double)mViewport.width() * (aspect / prevAspect));
-				}
-			}
-		}
-		
-		updateTileSize();
+		double aspect = (double)inWidth / (double)inHeight;
+		rectifyViewport(aspect);
 	}
 	
 	/**
@@ -474,6 +452,7 @@ class LogicalView
 	{
 		Rect outRect = new Rect();
 
+		// this will only work if the tiles start at logical 0
 		outRect.left = inPoint.x * (int)(mTileSize.x * 0.75); // 25% overlap
 		outRect.top = inPoint.y * mTileSize.y;
 		if (inPoint.x % 2 != 0) // odd col? need to shift down
@@ -516,6 +495,7 @@ class LogicalView
 		if (mTileSize.x == 0 || mTileSize.y == 0)
 			return outPoint;
 
+		// well this isn't right
 		outPoint.x = inPoint.x / mTileSize.x;
 		outPoint.y = inPoint.y / mTileSize.y;
 		return outPoint;
@@ -537,24 +517,87 @@ class LogicalView
 		angle *= 180 / Math.PI;
 		return angle;
 	}
-
+	
 	/**
 	 * Calculates the tile size from the logical dimensions.
 	 */
-	private void updateTileSize()
+	/*private void updateTileSize()
 	{
-		if (mBoardDim.x > 0 && mBoardDim.y > 0)
-	   	{
-			mTileSize = new Point();
-		   	// each hex overlaps by 25%, except the last tile so x = .75 * width * tileCount + .25 * width
-			mTileSize.x = (int)((double)mLogicalSize.x / (0.75 * (double)mBoardDim.x + 0.25));
-			// need to account for even columns shifted down 25% 
-			mTileSize.y = (int)((double)mLogicalSize.y / ((double)mBoardDim.y + 0.25));
+		if (mBoardSize.x == 0 || mBoardSize.y == 0)
+			return;
+	   	
+		mTileSize = new Point();
+	   	// each hex overlaps by 25%, except the last tile so x = .75 * width * tileCount + .25 * width
+		mTileSize.x = (int)((double)mLogicalSize.x / (0.75 * (double)mBoardSize.x + 0.25));
+		// need to account for even columns shifted down 25% 
+		mTileSize.y = (int)((double)mLogicalSize.y / ((double)mBoardSize.y + 0.25));
+	}*/
+	
+	/**
+	 * Adjusts viewport to be within the bounds of the logical dimensions and at the given aspect ratio. 
+	 */
+	private void rectifyViewport(double inAspectRatio)
+	{
+		double aspect = 1;
+		if (mViewport.height() > 0 && mViewport.width() > 0)
+			aspect = (double)mViewport.width() / (double)mViewport.height();
+		
+		if (inAspectRatio > 0) { // -1 means don't change aspect ratio
+			mViewport.right = mViewport.left + (int)((double)mViewport.width() * (inAspectRatio / aspect));
+			aspect = inAspectRatio;
+		}
+		
+		if (mViewport.right > mLogicalSize.x) {
+			// viewport is off the right side of the screen, try shifting left
+			mViewport.offset(mLogicalSize.x - mViewport.right, 0);
+			if (mViewport.left < 0)
+				mViewport.offset(-mViewport.left, 0); // too far, back to 0 - part of the view will hang off the right side now
+		}
+		
+		mViewport.bottom = mViewport.top + (int)((double)mViewport.width() / aspect);
+		if (mViewport.bottom > mLogicalSize.y)
+		{
+			//off the bottom of the screen, try shifting up
+			mViewport.offset(0, mLogicalSize.y - mViewport.bottom);
+			
+			if (mViewport.top < 0)
+				mViewport.offset(0, -mViewport.top); // too far, back to 0 - part of the view will hang off the bottom now
+		}
+		
+		if (mViewport.right > mLogicalSize.x && mViewport.bottom > mLogicalSize.y)
+		{
+			// shrink the view until one side is flush with the edge of the map
+			int hDiff = mViewport.right - mLogicalSize.x;
+			int vDiff = mViewport.bottom - mLogicalSize.y;
+			
+			if (hDiff >= vDiff)
+			{
+				//reduce the width
+				mViewport.left = 0;
+				mViewport.right = mLogicalSize.x;
+
+				// and adjust the height to meet the aspect ratio
+				mViewport.bottom = mViewport.top + (int)((double)mViewport.width() / aspect);
+			} else
+			{
+				// reduce the height
+				mViewport.top = 0;
+				mViewport.bottom = mLogicalSize.y;
+				
+				// and adjust the width to meet the aspect ratio
+				mViewport.right = mViewport.left + (int)((double)mViewport.height() * aspect);
+			}
 		}
 	}
+	
 	Point mTileSize;
-	Point mLogicalSize;
+	Point mLogicalSize; ///< Calculated from the tile size and the board dimensions
 	Point mPhysicalSize;
-	Point mBoardDim;
+	Point mBoardSize;
 	Rect mViewport;
+	
+	double mTileAngledSide; ///< Logical length of the angled line segments of a tile hex.
+	double mTileHorizSide; ///< Logical length of the horizontal line segments of a tile hex. 
+	double mTileDistance; ///< Logical distance between the centers of two adjacent tiles.
+	Point mTileOverlap; ///< Logical x and y distance an adjacent tile will "overlap" another tile, unless it is directly above or below.
 }

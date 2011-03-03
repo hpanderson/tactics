@@ -1,5 +1,8 @@
 package com.games.tactics;
 
+import java.util.Iterator;
+import java.util.Vector;
+
 import android.app.Activity;
 import android.os.Bundle;
 import android.util.Log;
@@ -36,28 +39,6 @@ public class Tactics extends Activity implements OnTouchListener
 	
 		mTacticsView.setOnTouchListener(this);
 		newGame();
-	}
-
-	private void newGame()
-	{
-		mTacticsView.newGame();
-		mThread = mTacticsView.getThread();
-
-		Resources res = getResources();
-		mBoard = new GameBoard(res.getInteger(R.integer.board_width), res.getInteger(R.integer.board_height));
-		mBoard.mapTerrain(GameBoard.TerrainType.OUTSIDE, R.drawable.tile_soil_cracked);
-
-		mPlayer = new Unit(R.drawable.unit_player);
-		mPlayer.setActionPoints(5);
-
-		for (int i = 0; i < res.getInteger(R.integer.enemy_count); i++) {
-			Unit enemy = new Unit(R.drawable.unit_enemy);
-			enemy.moveTo(mBoard.width() - (1 + i), mBoard.height() - 1); // move to opposite end of board
-			mThread.addEnemy(enemy);
-		}
-		mTacticsView.setGameBoard(mBoard);
-		mThread.setPlayer(mPlayer);
-		mMovingPlayer = false;
 	}
 
 	public boolean onTouch(View inView, MotionEvent inEvent)
@@ -111,6 +92,7 @@ public class Tactics extends Activity implements OnTouchListener
 		switch (inItem.getItemId())
 		{
 			case R.id.end_turn:
+				endTurn();
 				return true;
 			case R.id.new_game:
 				newGame();
@@ -120,9 +102,46 @@ public class Tactics extends Activity implements OnTouchListener
 		}
 	}
 
+	private void newGame()
+	{
+		mTacticsView.newGame();
+		mThread = mTacticsView.getThread();
+
+		Resources res = getResources();
+		mBoard = new GameBoard(res.getInteger(R.integer.board_width), res.getInteger(R.integer.board_height));
+		mBoard.mapTerrain(GameBoard.TerrainType.OUTSIDE, R.drawable.tile_soil_cracked);
+
+		mPlayer = new Unit(R.drawable.unit_player);
+		mPlayer.setActionPoints(5);
+		mPlayer.moveTo(3, 3);
+		
+		mEnemies = new Vector<Unit>();
+		for (int i = 0; i < res.getInteger(R.integer.enemy_count); i++) {
+			Unit enemy = new Unit(R.drawable.unit_enemy);
+			enemy.moveTo(mBoard.width() - (1 + i), mBoard.height() - 1); // move to opposite end of board
+			mThread.addEnemy(enemy);
+			mEnemies.add(enemy);
+		}
+		
+		mTacticsView.setGameBoard(mBoard);
+		mThread.setPlayer(mPlayer);
+		mMovingPlayer = false;
+	}
+	
+	private void endTurn()
+	{
+		mPlayer.resetAP();
+		
+		//moveNPC();
+		
+		for (Iterator<Unit> iter = mEnemies.iterator(); iter.hasNext();)
+			iter.next().resetAP();
+	}
+
 	boolean mMovingPlayer;
 	private GameBoard mBoard;
 	private Unit mPlayer;
+	private Vector<Unit> mEnemies;
 	private TacticsView mTacticsView;
 	private TacticsThread mThread;
 }
