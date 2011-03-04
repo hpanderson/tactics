@@ -229,25 +229,21 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 			tilePaint.setStyle(Paint.Style.STROKE);
 
 			RectF tileRectF = new RectF(tileRect);
-
-			// the lines A B and C form a triangle at the corner of the hex, from which all points in the hex are calculated
-			float B = tileRectF.height() / (float)2.0;
-			float C = tileRectF.width() / (float)2.0;
-			float A = (float)0.5 * C;
-
+			Point overlap = mLogicalView.logicalToPhysical(mLogicalView.getTileOverlap());
+			
 			// starting with the leftmost point and going clockwise, the points are
 			// P1(0, B) - P2 (A, 0)
-			inCanvas.drawLine(tileRectF.left, tileRectF.top + B,  tileRectF.left + A, tileRectF.top, tilePaint);
+			inCanvas.drawLine(tileRectF.left, tileRectF.top + overlap.y,  tileRectF.left + overlap.x, tileRectF.top, tilePaint);
 			// P2(A, 0) - P3 (A+C, 0)
-			inCanvas.drawLine(tileRectF.left + A, tileRectF.top, tileRectF.left + A + C, tileRectF.top, tilePaint);
-			// P3(A+C, 0) - P4(2*C, B)
-			inCanvas.drawLine(tileRectF.left + A + C, tileRectF.top, tileRectF.left + (2*C), tileRectF.top + B, tilePaint);
-			// P4(2*C, B) - P5(A+C, 2*B)
-			inCanvas.drawLine(tileRectF.left + (2*C), tileRectF.top + B, tileRectF.left + A + C, tileRectF.top + (2*B), tilePaint);
+			inCanvas.drawLine(tileRectF.left + overlap.x, tileRectF.top, tileRectF.right - overlap.x, tileRectF.top, tilePaint);
+			// P3(A+C, 0) - P4(2*A + C, B)
+			inCanvas.drawLine(tileRectF.right - overlap.x, tileRectF.top, tileRectF.right, tileRectF.top + overlap.y, tilePaint);
+			// P4(2*A + C, B) - P5(A+C, 2*B)
+			inCanvas.drawLine(tileRectF.right, tileRectF.top + overlap.y, tileRectF.right - overlap.x, tileRectF.bottom, tilePaint);
 			// P5(A+C, 2*B) - P6(A, 2*B)
-			inCanvas.drawLine(tileRectF.left + A + C, tileRectF.top + (2*B), tileRectF.left + A, tileRectF.top + (2*B), tilePaint);
+			inCanvas.drawLine(tileRectF.right - overlap.x, tileRectF.bottom, tileRectF.left + overlap.x, tileRectF.bottom, tilePaint);
 			// P6(A, 2*B) - P1(0, B)
-			inCanvas.drawLine(tileRectF.left + A, tileRectF.top + (2*B), tileRectF.left, tileRectF.top + B, tilePaint);
+			inCanvas.drawLine(tileRectF.left + overlap.x, tileRectF.bottom, tileRectF.left, tileRectF.top + overlap.y, tilePaint);
 		}
 
 		private void drawUnit(Unit inUnit, Canvas inCanvas) { drawUnit(inUnit, inCanvas, 255); }
@@ -333,6 +329,7 @@ class LogicalView
 		mTileAngledSide = (mTileSize.x / 2.0) / Math.cos(Math.PI / 6.0); // hypotenuse of corner angle of hex 
 		mTileOverlap = new Point((int)(mTileAngledSide * Math.cos(Math.PI / 3.0)), (int)(mTileSize.y / 2.0));
 		mTileHorizSide = mTileSize.x - (2.0 * mTileOverlap.x);
+		mTileGradient = (double)mTileOverlap.y / (double)mTileOverlap.x; // gradient of the diagonal line
 		
 		/* This is for a hex with equal side lengths (enclosing rectangle will not be a square)
 		mTileSideLength = 128; 
@@ -343,9 +340,14 @@ class LogicalView
 		Log.i(this.getClass().getName(), "Tile side: " + Integer.toString(mTileSideLength));*/
 		Log.i(this.getClass().getName(), "Tile overlap: (" + Integer.toString(mTileOverlap.x) + "," + Integer.toString(mTileOverlap.y) + ")");
 
-		mViewport = new Rect(mTileSize.x, mTileSize.y, mTileSize.x * 9, mTileSize.y * 11); // default to ~10 tiles
+		mViewport = new Rect(0, 0, mTileSize.x * 8, mTileSize.y * 10); // default to ~10 tiles
+		Log.i(this.getClass().getName(), "Viewport: " + mViewport.toString());
 	}
 	
+	/**
+	 *  Gets the overlap of the tiles in logical units.
+	 */
+	public Point getTileOverlap() { return mTileOverlap; }
 	/**
 	 * Sets the dimensions of the game board.
 	 * 
@@ -356,9 +358,8 @@ class LogicalView
 	{
 		mBoardSize = new Point(inWidth, inHeight);
 
-		// it's not 25% - this is wrong, use the mTileOverlap dimensions
-		// each hex overlaps by 25%, except the last tile so x = .75 * width * tileCount + .25 * width
-		mLogicalSize.x = (int)((double)mBoardSize.x * (mTileSize.x * 0.75)) + (int)Math.ceil((mTileSize.x * 0.25));
+		// each hex overlaps, except the last tile
+		mLogicalSize.x = mBoardSize.x * (mTileSize.x - mTileOverlap.x) + mTileOverlap.x;
 		// need to account for even columns shifted down 25% 
 		mLogicalSize.y = mBoardSize.y * mTileSize.y + (int)Math.ceil(mTileSize.y * 0.25);
 				
@@ -435,7 +436,7 @@ class LogicalView
 	}
 	
 	/**
-	 * Gets a logical Rect given a physical one.
+	 * Gets a physical Rect given a logical one.
 	 * 
 	 * @param inRect
 	 * @return
@@ -443,6 +444,17 @@ class LogicalView
 	public Rect logicalToPhysical(Rect inRect)
 	{
 		return new Rect(logicalToPhysicalX(inRect.left), logicalToPhysicalY(inRect.top), logicalToPhysicalX(inRect.right), logicalToPhysicalY(inRect.bottom));
+	}
+	
+	/**
+	 * Gets a physical Point given a logical one.
+	 * 
+	 * @param inPoint
+	 * @return
+	 */
+	public Point logicalToPhysical(Point inPoint)
+	{
+		return new Point(logicalToPhysicalX(inPoint.x), logicalToPhysicalY(inPoint.y));
 	}
 
 	/**
@@ -452,11 +464,10 @@ class LogicalView
 	{
 		Rect outRect = new Rect();
 
-		// this will only work if the tiles start at logical 0
-		outRect.left = inPoint.x * (int)(mTileSize.x * 0.75); // 25% overlap
+		outRect.left = inPoint.x * (mTileSize.x - mTileOverlap.x);
 		outRect.top = inPoint.y * mTileSize.y;
 		if (inPoint.x % 2 != 0) // odd col? need to shift down
-			outRect.top += (mTileSize.y / 2.0);
+			outRect.top += mTileOverlap.y;
 
 		outRect.right = outRect.left + mTileSize.x;
 		outRect.bottom = outRect.top + mTileSize.y;
@@ -494,10 +505,39 @@ class LogicalView
 
 		if (mTileSize.x == 0 || mTileSize.y == 0)
 			return outPoint;
-
-		// well this isn't right
-		outPoint.x = inPoint.x / mTileSize.x;
-		outPoint.y = inPoint.y / mTileSize.y;
+		
+		// using a method from the gamedev.net article "coordinates in hexagon based tile maps"
+		// break board into even square sections (the hexes will be cut up weird) and determine the section we are in
+		outPoint.x = (int)((double)inPoint.x / (mTileSize.x - mTileOverlap.x));
+		outPoint.y = (int)((double)inPoint.y / mTileSize.y);
+		// what pixel in the section?
+		Point sectionPixel = new Point(inPoint.x % (mTileSize.x - mTileOverlap.x), inPoint.y % mTileSize.y);
+		
+		// determine section type
+		if (outPoint.x % 2 == 0)
+		{
+			// type A - includes 3/4 of a hex on the right side, plus a triangle from two other hexes on the left side
+			if (sectionPixel.y > (mTileGradient * sectionPixel.x + mTileOverlap.y))
+				outPoint.offset(-1, 1); // in the bottom triangle
+			else if (sectionPixel.y < (-mTileGradient * sectionPixel.x + mTileOverlap.y)) 
+				outPoint.offset(-1, 0); // in the top triangle
+			// else we are in the middle 3/4 of a hex - don't need to change outPoint
+		} else
+		{
+			// type B - includes the top and bottom halves of two hexes, plus the side of another
+			// first determine which half we are in
+			if (sectionPixel.y <= (mTileSize.x / 2.0)) {
+				// in top half - are we in the small hex on the left?
+				if (sectionPixel.y > mTileGradient * sectionPixel.x)
+					outPoint.offset(-1, 0);
+				else
+					outPoint.offset(0, -1);
+			} else {
+				// in bottom half - are we in the small hex on the left?
+				if (sectionPixel.y < -mTileGradient * sectionPixel.x + 2 * mTileOverlap.y)
+					outPoint.offset(-1, 0);
+			}
+		}
 		return outPoint;
 	}
 	
@@ -588,6 +628,8 @@ class LogicalView
 				mViewport.right = mViewport.left + (int)((double)mViewport.height() * aspect);
 			}
 		}
+		
+		Log.i(this.getClass().getName(), "Viewport: " + mViewport.toString());
 	}
 	
 	Point mTileSize;
@@ -597,6 +639,7 @@ class LogicalView
 	Rect mViewport;
 	
 	double mTileAngledSide; ///< Logical length of the angled line segments of a tile hex.
+	double mTileGradient; ///< The gradient of the mTileAngledSide line.
 	double mTileHorizSide; ///< Logical length of the horizontal line segments of a tile hex. 
 	double mTileDistance; ///< Logical distance between the centers of two adjacent tiles.
 	Point mTileOverlap; ///< Logical x and y distance an adjacent tile will "overlap" another tile, unless it is directly above or below.
