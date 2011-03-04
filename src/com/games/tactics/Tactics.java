@@ -10,16 +10,19 @@ import android.content.res.Resources;
 
 import android.view.View;
 import android.view.View.OnTouchListener;
+import android.view.View.OnKeyListener;
 import android.view.MotionEvent;
+import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.MenuInflater;
+
 import android.graphics.Point;
 import android.graphics.PointF;
 
 import com.games.tactics.TacticsView.TacticsThread;
 
-public class Tactics extends Activity implements OnTouchListener
+public class Tactics extends Activity implements OnTouchListener, OnKeyListener
 {
     /**
      * Invoked when the Activity is created.
@@ -38,6 +41,7 @@ public class Tactics extends Activity implements OnTouchListener
         Log.i(this.getClass().getName(), "Created tactics view");
 	
 		mTacticsView.setOnTouchListener(this);
+		mTacticsView.setOnKeyListener(this);
 		newGame();
 	}
 
@@ -46,36 +50,63 @@ public class Tactics extends Activity implements OnTouchListener
 		Point landingPoint = mTacticsView.getLogicalView().physicalToTile(new Point((int)inEvent.getX(), (int)inEvent.getY()));
 		Point playerPoint = mPlayer.getLocation();
 		boolean onPlayer = landingPoint.equals(playerPoint);
+		
 		switch (inEvent.getAction())
 		{
 			case MotionEvent.ACTION_DOWN:
-				if (mPlayer.hasAP())
-					mThread.setMovingPlayer(onPlayer);
+				if (onPlayer && mPlayer.hasAP())
+					mThread.setMovingPlayer(true);
 				break;
-		
+				
 			case MotionEvent.ACTION_UP:
-
-				if (mThread.getMovingPlayer() && !onPlayer) {
+				if (mThread.isMovingPlayer() && !onPlayer) {
 					double angle = mTacticsView.getLogicalView().getUnitAngle(mPlayer, new PointF(inEvent.getX(), inEvent.getY()));
 					mPlayer.move(angle, mBoard.getRect());
 				}
 
 				mThread.setTarget(-1, -1);
-				mThread.setMovingPlayer(false);
+				mThread.setMovingPlayer(false);			
+				break;
+				
+			case MotionEvent.ACTION_MOVE:				
+				
+				// problem - the thread doesn't block on the view. it could be in the middle of drawing when we zoom or pan, which causes cracks in the tiles
+				if (!mThread.isMovingPlayer()) {
+					if (inEvent.getHistorySize() > 0) // just get the previous point
+						mTacticsView.panView(new Point((int)(inEvent.getHistoricalX(0) - inEvent.getX()), (int)(inEvent.getHistoricalY(0) - inEvent.getY())));
+				} else if (onPlayer)
+					mThread.setTarget(-1, -1); // don't display ghost if user is touching the player
+				else
+					mThread.setTarget(inEvent.getX(), inEvent.getY());
 				break;
 
 			default:
 				break;
 		}
-
-		if (inEvent.getAction() != MotionEvent.ACTION_UP) {
-			if (onPlayer)
-				mThread.setTarget(-1, -1); // don't display ghost if user is touching the player
-			else
-				mThread.setTarget(inEvent.getX(), inEvent.getY());
-		}
-
+		
 		return true;
+	}
+	
+	public boolean onKey(View inView, int inKeyCode, KeyEvent inEvent)
+	{
+		if (inEvent.getAction() != KeyEvent.ACTION_DOWN)
+			return false;
+		
+		boolean handled = false;
+		switch(inKeyCode)
+		{
+			case KeyEvent.KEYCODE_DPAD_UP:
+				mTacticsView.zoom(0.9);
+				handled = true;
+				break;
+				
+			case KeyEvent.KEYCODE_DPAD_DOWN:
+				mTacticsView.zoom(1.1);
+				handled = true;
+				break;
+		}
+		
+		return handled;
 	}
 
 	@Override
@@ -104,7 +135,7 @@ public class Tactics extends Activity implements OnTouchListener
 
 	private void newGame()
 	{
-		mTacticsView.newGame();
+        mTacticsView.newGame();
 		mThread = mTacticsView.getThread();
 
 		Resources res = getResources();
@@ -113,17 +144,17 @@ public class Tactics extends Activity implements OnTouchListener
 
 		mPlayer = new Unit(R.drawable.unit_player);
 		mPlayer.setActionPoints(5);
-		mPlayer.moveTo(3, 3);
+		mPlayer.moveTo(4, 4);
 		
 		mEnemies = new Vector<Unit>();
 		for (int i = 0; i < res.getInteger(R.integer.enemy_count); i++) {
 			Unit enemy = new Unit(R.drawable.unit_enemy);
 			enemy.moveTo(mBoard.width() - (1 + i), mBoard.height() - 1); // move to opposite end of board
-			mThread.addEnemy(enemy);
 			mEnemies.add(enemy);
+			mThread.addEnemy(enemy);
 		}
-		
-		mTacticsView.setGameBoard(mBoard);
+
+        mTacticsView.setGameBoard(mBoard);
 		mThread.setPlayer(mPlayer);
 		mMovingPlayer = false;
 	}

@@ -2,6 +2,7 @@ package com.games.tactics;
 
 import android.graphics.Point;
 import android.graphics.Rect;
+import android.util.Log;
 
 class Unit
 {
@@ -42,24 +43,28 @@ class Unit
 		// starting with 0 pointing to the right and moving clockwise
 		if (inAngle >= 0 && inAngle < 60) {
 			delta.x = 1;
-			delta.y = 0;
+			if (mLocation.x % 2 == 1)
+				delta.y = 1;
 		} else if (inAngle >= 60 && inAngle < 120) {
 			delta.x = 0;
 			delta.y = 1;
 		} else if (inAngle >= 120 && inAngle < 180) {
 			delta.x = -1;
-			delta.y = 0;
+			if (mLocation.x % 2 == 1)
+				delta.y = 1;
 		} else if (inAngle >= -180 && inAngle < -120) {
 			delta.x = -1;
-			delta.y = -1;
+			if (mLocation.x % 2 == 0)
+				delta.y = -1;
 		} else if (inAngle >= -120 && inAngle < -60) {
 			delta.x = 0;
 			delta.y = -1;
 		} else if (inAngle >= -60 && inAngle < 0) {
 			delta.x = 1;
-			delta.y = -1;
+			if (mLocation.x % 2 == 0)
+				delta.y = -1;
 		}
-		
+
 		move(delta, inBounds);
 	}
 

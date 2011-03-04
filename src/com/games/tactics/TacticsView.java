@@ -81,6 +81,16 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
             }
         }
     }
+    
+    public void panView(Point inDelta)
+    {
+    	mLogicalView.pan(inDelta);
+    }
+
+    public void zoom(double inScale)
+    {
+    	mLogicalView.zoom(inScale);
+    }
 
 	public TacticsThread getThread() { return mThread; }	
 	public LogicalView getLogicalView() { return mLogicalView; }
@@ -108,7 +118,7 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 		
         private void reset()
 		{
-			synchronized(mSurfaceHolder)
+        	synchronized(mSurfaceHolder)
 			{
 				mTarget = new PointF(-1, -1);
 				mMovingPlayer = false;
@@ -152,11 +162,16 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 			// draw black background first
 			inCanvas.drawColor(Color.BLACK);
 
+			//long tileStart = System.currentTimeMillis();
 			for (int x = 0; x < mBoard.width(); x++) {
 				for (int y = 0; y < mBoard.height(); y++) {
-					drawTile(new Point(x, y), inCanvas);
+					Point tilePoint = new Point(x, y);
+					if (mLogicalView.tileInView(tilePoint))
+						drawTile(tilePoint, inCanvas);
 				}
 			}
+			/*long tileEnd = System.currentTimeMillis();
+			Log.i(this.getClass().getName(), "Board draw time: " + Long.toString(tileEnd - tileStart));*/
 
 			drawUnit(mPlayer, inCanvas);
 			for (Iterator<Unit> iter = mEnemies.iterator(); iter.hasNext();)
@@ -168,9 +183,9 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 			inCanvas.drawText(Double.toString(mPlayer.getAPRemaining()), 20, 20, APPaint);
 
 			if (mTarget.x >= 0)
-		   	{
+		   	{				
 				if (!mMovingPlayer)
-				{
+				{					
 					// draw target line
 					//Rect enemyRect = boardToScreen(mEnemy.getLocation());
 					Rect playerRect = mLogicalView.tileToPhysical(mPlayer.getLocation());
@@ -187,11 +202,6 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 				} else
 			   	{
 					double angle = mLogicalView.getUnitAngle(mPlayer, mTarget); 
-
-					/*Paint anglePaint = new Paint();
-					anglePaint.setColor(Color.RED);
-					anglePaint.setTextSize(20);
-					inCanvas.drawText(Double.toString(angle), 20, 20, anglePaint);*/
 
 					// draw ghost of player to show where move will result
 					// don't need a full copy of the player, just the resource id and location
@@ -229,7 +239,7 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 			tilePaint.setStyle(Paint.Style.STROKE);
 
 			RectF tileRectF = new RectF(tileRect);
-			Point overlap = mLogicalView.logicalToPhysical(mLogicalView.getTileOverlap());
+			Point overlap = mLogicalView.getPhysicalTileOverlap();
 			
 			// starting with the leftmost point and going clockwise, the points are
 			// P1(0, B) - P2 (A, 0)
@@ -265,7 +275,7 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 		}
 		
 		public void setMovingPlayer(boolean inMoving) { mMovingPlayer = inMoving; }
-		public boolean getMovingPlayer() { return mMovingPlayer; }
+		public boolean isMovingPlayer() { return mMovingPlayer; }
 
 		public void setPlayer(Unit inPlayer) { mPlayer = inPlayer; }
 		public void addEnemy(Unit inEnemy) { mEnemies.add(inEnemy); }
@@ -331,23 +341,17 @@ class LogicalView
 		mTileHorizSide = mTileSize.x - (2.0 * mTileOverlap.x);
 		mTileGradient = (double)mTileOverlap.y / (double)mTileOverlap.x; // gradient of the diagonal line
 		
-		/* This is for a hex with equal side lengths (enclosing rectangle will not be a square)
-		mTileSideLength = 128; 
-		mTileDistance = 256; // this is wrong
-		mTileOverlap = new Point((int)(Math.cos(Math.PI / 3.0) * mTileSideLength), (int)(Math.cos() * mTileSideLength));
-		mTileSize = new Point((int)(mTileSideLength + 2.0 * mTileOverlap.x), (int)(2.0 * mTileOverlap.y));
-		Log.i(this.getClass().getName(), "Tile size: (" + Integer.toString(mTileSize.x) + "," + Integer.toString(mTileSize.y) + ")");
-		Log.i(this.getClass().getName(), "Tile side: " + Integer.toString(mTileSideLength));*/
-		Log.i(this.getClass().getName(), "Tile overlap: (" + Integer.toString(mTileOverlap.x) + "," + Integer.toString(mTileOverlap.y) + ")");
-
-		mViewport = new Rect(0, 0, mTileSize.x * 8, mTileSize.y * 10); // default to ~10 tiles
-		Log.i(this.getClass().getName(), "Viewport: " + mViewport.toString());
+		mViewport = new Rect(500, 500, mTileSize.x * 10, mTileSize.y * 10); // default to ~10 tiles	
 	}
 	
 	/**
-	 *  Gets the overlap of the tiles in logical units.
+	 *  Gets the overlap of the tiles in physical units.
 	 */
-	public Point getTileOverlap() { return mTileOverlap; }
+	public Point getPhysicalTileOverlap()
+	{
+		return new Point((int)(((double)mTileOverlap.x / mViewport.width()) * mPhysicalSize.x), (int)(((double)mTileOverlap.y / mViewport.height()) * mPhysicalSize.y));
+	}
+	
 	/**
 	 * Sets the dimensions of the game board.
 	 * 
@@ -361,7 +365,7 @@ class LogicalView
 		// each hex overlaps, except the last tile
 		mLogicalSize.x = mBoardSize.x * (mTileSize.x - mTileOverlap.x) + mTileOverlap.x;
 		// need to account for even columns shifted down 25% 
-		mLogicalSize.y = mBoardSize.y * mTileSize.y + (int)Math.ceil(mTileSize.y * 0.25);
+		mLogicalSize.y = mBoardSize.y * mTileSize.y + mTileOverlap.y;
 				
 		rectifyViewport(-1);
 	}
@@ -375,11 +379,33 @@ class LogicalView
 	public void setPhysicalSize(int inWidth, int inHeight)
 	{
 		mPhysicalSize = new Point(inWidth, inHeight);
-
-		double aspect = (double)inWidth / (double)inHeight;
-		rectifyViewport(aspect);
+		rectifyViewport((double)inWidth / (double)inHeight);
 	}
 	
+	/**
+	 * Pans the view by a number of physical pixels. One panning unit is a percentage of the viewport for smooth scrolling.
+	 * @param inDelta
+	 */
+	public void pan(Point inDelta)
+	{
+		// convert the difference in physical pixels do logical - not the same as converting a point 
+		inDelta.x = (int)(((double)inDelta.x / mPhysicalSize.x) * mViewport.width()); 
+		inDelta.y = (int)(((double)inDelta.y / mPhysicalSize.y) * mViewport.height()); 
+		mViewport.offset(inDelta.x, inDelta.y);
+		rectifyViewport(-1);		
+	}
+	
+	/**
+	 * Zooms in/out.
+	 * @param inZoom
+	 */
+	public void zoom(double inScale)
+	{
+		double aspect = (double)mViewport.width() / (double)mViewport.height();
+		mViewport.inset(mViewport.width() - (int)(mViewport.width() * inScale), mViewport.height() - (int)((mViewport.width() * inScale) / aspect));
+		rectifyViewport(-1);
+	}
+
 	/**
 	 * Gets a logical X coordinate given a physical one.
 	 * 
@@ -421,7 +447,7 @@ class LogicalView
 	 */
 	public int logicalToPhysicalX(int inLogicalX)
 	{
-		return (int)(((double)inLogicalX / mViewport.width()) * mPhysicalSize.x);
+		return (int)(((double)(inLogicalX - mViewport.left) / mViewport.width()) * mPhysicalSize.x);
 	}
 
 	/**
@@ -432,7 +458,7 @@ class LogicalView
 	 */
 	public int logicalToPhysicalY(int inLogicalY)
 	{
-		return (int)(((double)inLogicalY / mViewport.height()) * mPhysicalSize.y);
+		return (int)(((double)(inLogicalY - mViewport.top) / mViewport.height()) * mPhysicalSize.y);
 	}
 	
 	/**
@@ -557,22 +583,7 @@ class LogicalView
 		angle *= 180 / Math.PI;
 		return angle;
 	}
-	
-	/**
-	 * Calculates the tile size from the logical dimensions.
-	 */
-	/*private void updateTileSize()
-	{
-		if (mBoardSize.x == 0 || mBoardSize.y == 0)
-			return;
-	   	
-		mTileSize = new Point();
-	   	// each hex overlaps by 25%, except the last tile so x = .75 * width * tileCount + .25 * width
-		mTileSize.x = (int)((double)mLogicalSize.x / (0.75 * (double)mBoardSize.x + 0.25));
-		// need to account for even columns shifted down 25% 
-		mTileSize.y = (int)((double)mLogicalSize.y / ((double)mBoardSize.y + 0.25));
-	}*/
-	
+		
 	/**
 	 * Adjusts viewport to be within the bounds of the logical dimensions and at the given aspect ratio. 
 	 */
@@ -582,27 +593,31 @@ class LogicalView
 		if (mViewport.height() > 0 && mViewport.width() > 0)
 			aspect = (double)mViewport.width() / (double)mViewport.height();
 		
-		if (inAspectRatio > 0) { // -1 means don't change aspect ratio
-			mViewport.right = mViewport.left + (int)((double)mViewport.width() * (inAspectRatio / aspect));
-			aspect = inAspectRatio;
-		}
-		
-		if (mViewport.right > mLogicalSize.x) {
-			// viewport is off the right side of the screen, try shifting left
-			mViewport.offset(mLogicalSize.x - mViewport.right, 0);
-			if (mViewport.left < 0)
-				mViewport.offset(-mViewport.left, 0); // too far, back to 0 - part of the view will hang off the right side now
-		}
-		
-		mViewport.bottom = mViewport.top + (int)((double)mViewport.width() / aspect);
-		if (mViewport.bottom > mLogicalSize.y)
-		{
-			//off the bottom of the screen, try shifting up
-			mViewport.offset(0, mLogicalSize.y - mViewport.bottom);
+		if (inAspectRatio > 0) // -1 means don't change aspect ratio
+		{			
+			Log.i(this.getClass().getName(), "Prev Aspect: " + Double.toString(aspect));
+			Log.i(this.getClass().getName(), "New Aspect: " + Double.toString(inAspectRatio));
+
+			Log.i(this.getClass().getName(), "Prev Viewport: " + mViewport.toString());
 			
-			if (mViewport.top < 0)
-				mViewport.offset(0, -mViewport.top); // too far, back to 0 - part of the view will hang off the bottom now
+			if (inAspectRatio > aspect) // getting fatter, adjust width
+				mViewport.bottom = mViewport.top + (int)((double)mViewport.width() * (1 / inAspectRatio));
+			else // getting thinner, adjust height
+				mViewport.right = mViewport.left + (int)((double)mViewport.height() * inAspectRatio);
+			
+			aspect = inAspectRatio;
+			Log.i(this.getClass().getName(), "Viewport: " + mViewport.toString());
 		}
+		
+		if (mViewport.right > mLogicalSize.x)
+			mViewport.offset(mLogicalSize.x - mViewport.right, 0); // viewport is off the right side of the screen, try shifting left		
+		if (mViewport.left < 0)
+			mViewport.offset(-mViewport.left, 0); // too far left, back to 0 - part of the view may hang off the right side now
+				
+		if (mViewport.bottom > mLogicalSize.y)
+			mViewport.offset(0, mLogicalSize.y - mViewport.bottom); // off the bottom of the screen, try shifting up		
+		if (mViewport.top < 0)
+			mViewport.offset(0, -mViewport.top); // too far up, back to 0 - part of the view may hang off the bottom now
 		
 		if (mViewport.right > mLogicalSize.x && mViewport.bottom > mLogicalSize.y)
 		{
@@ -628,8 +643,16 @@ class LogicalView
 				mViewport.right = mViewport.left + (int)((double)mViewport.height() * aspect);
 			}
 		}
-		
-		Log.i(this.getClass().getName(), "Viewport: " + mViewport.toString());
+	}
+	
+	/**
+	 * Determines whether a tile is fully or partially in the viewport.
+	 * @param inPoint
+	 * @return
+	 */
+	public boolean tileInView(Point inPoint)
+	{
+		return Rect.intersects(mViewport, tileToLogical(inPoint));
 	}
 	
 	Point mTileSize;
