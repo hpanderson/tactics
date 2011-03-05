@@ -22,6 +22,8 @@ import android.graphics.PointF;
 
 import com.games.tactics.TacticsView.TacticsThread;
 
+import android.os.Debug;
+
 public class Tactics extends Activity implements OnTouchListener, OnKeyListener
 {
     /**
@@ -33,6 +35,7 @@ public class Tactics extends Activity implements OnTouchListener, OnKeyListener
     @Override
     protected void onCreate(Bundle savedInstanceState)
     {
+    	//Debug.startMethodTracing("tactics");
         super.onCreate(savedInstanceState);
         // tell system to use the layout defined in our XML file
         setContentView(R.layout.main);
@@ -44,9 +47,17 @@ public class Tactics extends Activity implements OnTouchListener, OnKeyListener
 		mTacticsView.setOnKeyListener(this);
 		newGame();
 	}
+    
+    @Override
+    protected void onDestroy()
+    {
+    	//Debug.stopMethodTracing();
+    }
 
 	public boolean onTouch(View inView, MotionEvent inEvent)
 	{
+		//long touchStart = System.currentTimeMillis();
+
 		Point landingPoint = mTacticsView.getLogicalView().physicalToTile(new Point((int)inEvent.getX(), (int)inEvent.getY()));
 		Point playerPoint = mPlayer.getLocation();
 		boolean onPlayer = landingPoint.equals(playerPoint);
@@ -70,14 +81,15 @@ public class Tactics extends Activity implements OnTouchListener, OnKeyListener
 				
 			case MotionEvent.ACTION_MOVE:				
 				
-				// problem - the thread doesn't block on the view. it could be in the middle of drawing when we zoom or pan, which causes cracks in the tiles
 				if (!mThread.isMovingPlayer()) {
 					if (inEvent.getHistorySize() > 0) // just get the previous point
 						mTacticsView.panView(new Point((int)(inEvent.getHistoricalX(0) - inEvent.getX()), (int)(inEvent.getHistoricalY(0) - inEvent.getY())));
-				} else if (onPlayer)
-					mThread.setTarget(-1, -1); // don't display ghost if user is touching the player
-				else
-					mThread.setTarget(inEvent.getX(), inEvent.getY());
+				} else {
+					if (onPlayer)
+						mThread.setTarget(-1, -1); // don't display ghost if user is touching the player
+					else
+						mThread.setTarget(inEvent.getX(), inEvent.getY());
+				}
 				break;
 
 			default:
