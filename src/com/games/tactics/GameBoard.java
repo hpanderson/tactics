@@ -2,7 +2,9 @@ package com.games.tactics;
 
 import android.graphics.Rect;
 import android.graphics.Point;
+
 import java.util.EnumMap;
+import java.util.Vector;
 
 class GameBoard
 {
@@ -34,6 +36,37 @@ class GameBoard
 	public void mapTerrain(TerrainType inTerrain, int inResourceId)
 	{
 		mTerrainResources.put(inTerrain, new Integer(inResourceId));
+	}
+	
+	public Vector<Point> getAdjacentTiles(Unit inUnit)
+	{
+		Vector<Point> outPoints = new Vector<Point>();
+		Point unitLocation = inUnit.getLocation();
+		
+		// there is only 1 tile that can decrease the row number (0, -1)
+		if (unitLocation.y > 0)
+			outPoints.add(new Point(unitLocation.x, unitLocation.y - 1));
+		
+		// check the remaining 5 tiles
+		for (int x = -1; x <= 1; x++) {
+			for (int y = 0; y <= 1; y++) {
+				if (x == 0 && y == 0)
+					continue; // don't use my own point!
+				
+				Point p = new Point(unitLocation.x + x, unitLocation.y + y);
+				if (!mDimensions.contains(p.x, p.y))
+					continue; // off edge of board
+				
+				if (mTerrainType[p.x][p.y] == TerrainType.WALL || mTerrainType[p.x][p.y] == TerrainType.WATER)
+					continue; // can't walk on this terrain type
+				
+				// need to check if there is another unit here?
+
+				outPoints.add(p);
+			}
+		}
+		
+		return outPoints;
 	}
 
 	public enum TerrainType

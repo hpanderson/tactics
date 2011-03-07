@@ -327,7 +327,7 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 	   	{
             mRunning = b;
         }
-
+        
         private SurfaceHolder mSurfaceHolder;
         private Context mContext;
 

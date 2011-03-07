@@ -332,6 +332,8 @@ class LogicalView
 						(int)((double)mLogicalViewport.right / (mTileSize.x - mLogicalOverlap.x)), (int)((double)mLogicalViewport.bottom / mTileSize.y));
 		mTileViewport.left = Math.max(mTileViewport.left, 0);
 		mTileViewport.top = Math.max(mTileViewport.top, 0);
+		mTileViewport.right = Math.min(mTileViewport.right, mBoardSize.x - 1);
+		mTileViewport.bottom = Math.min(mTileViewport.bottom, mBoardSize.y - 1);
 	}
 	
 	/**

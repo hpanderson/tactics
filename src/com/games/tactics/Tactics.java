@@ -17,6 +17,9 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.MenuInflater;
 
+import android.view.ScaleGestureDetector;
+import android.view.ScaleGestureDetector.OnScaleGestureListener;
+
 import android.graphics.Point;
 import android.graphics.PointF;
 
@@ -24,63 +27,67 @@ import com.games.tactics.TacticsView.TacticsThread;
 
 import android.os.Debug;
 
-public class Tactics extends Activity implements OnTouchListener, OnKeyListener
+public class Tactics extends Activity implements OnTouchListener, OnKeyListener, OnScaleGestureListener
 {
-    /**
-     * Invoked when the Activity is created.
-     * 
-     * @param savedInstanceState a Bundle containing state saved from a previous
-     *        execution, or null if this is a new execution
-     */
-    @Override
-    protected void onCreate(Bundle savedInstanceState)
-    {
-    	//Debug.startMethodTracing("tactics");
-        super.onCreate(savedInstanceState);
-        // tell system to use the layout defined in our XML file
-        setContentView(R.layout.main);
+	/**
+	 * Invoked when the Activity is created.
+	 * 
+	 * @param savedInstanceState a Bundle containing state saved from a previous
+	 *        execution, or null if this is a new execution
+	 */
+	protected void onCreate(Bundle savedInstanceState)
+	{
+		//Debug.startMethodTracing("tactics");
+		super.onCreate(savedInstanceState);
+		// tell system to use the layout defined in our XML file
+		setContentView(R.layout.main);
 
+		mScaleDetector = new ScaleGestureDetector(getBaseContext() , this);
 		mTacticsView = (TacticsView) findViewById(R.id.tactics);
-        Log.i(this.getClass().getName(), "Created tactics view");
-	
+		Log.i(this.getClass().getName(), "Created tactics view");
+
 		mTacticsView.setOnTouchListener(this);
 		mTacticsView.setOnKeyListener(this);
 		newGame();
 	}
-    
-    @Override
-    protected void onDestroy()
-    {
-    	//Debug.stopMethodTracing();
-    }
+
+	protected void onDestroy()
+	{
+		super.onDestroy();
+		//Debug.stopMethodTracing();
+	}
 
 	public boolean onTouch(View inView, MotionEvent inEvent)
 	{
+		if (inEvent.getPointerCount() > 1) {
+			Log.i(this.getClass().getName(), "passing touch event to scale detector");
+			return mScaleDetector.onTouchEvent(inEvent);
+		}
+		
 		//long touchStart = System.currentTimeMillis();
-
 		Point landingPoint = mTacticsView.getLogicalView().physicalToTile(new Point((int)inEvent.getX(), (int)inEvent.getY()));
 		Point playerPoint = mPlayer.getLocation();
 		boolean onPlayer = landingPoint.equals(playerPoint);
-		
+
 		switch (inEvent.getAction())
 		{
 			case MotionEvent.ACTION_DOWN:
 				if (onPlayer && mPlayer.hasAP())
 					mThread.setMovingPlayer(true);
 				break;
-				
+	
 			case MotionEvent.ACTION_UP:
 				if (mThread.isMovingPlayer() && !onPlayer) {
 					double angle = mTacticsView.getLogicalView().getUnitAngle(mPlayer, new PointF(inEvent.getX(), inEvent.getY()));
 					mPlayer.move(angle, mBoard.getRect());
 				}
-
+	
 				mThread.setTarget(-1, -1);
 				mThread.setMovingPlayer(false);			
 				break;
-				
-			case MotionEvent.ACTION_MOVE:				
-				
+	
+			case MotionEvent.ACTION_MOVE:
+	
 				if (!mThread.isMovingPlayer()) {
 					if (inEvent.getHistorySize() > 0) // just get the previous point
 						mTacticsView.panView(new Point((int)(inEvent.getHistoricalX(0) - inEvent.getX()), (int)(inEvent.getHistoricalY(0) - inEvent.getY())));
@@ -91,37 +98,47 @@ public class Tactics extends Activity implements OnTouchListener, OnKeyListener
 						mThread.setTarget(inEvent.getX(), inEvent.getY());
 				}
 				break;
-
+	
 			default:
 				break;
 		}
-		
+
 		return true;
 	}
-	
+
 	public boolean onKey(View inView, int inKeyCode, KeyEvent inEvent)
 	{
 		if (inEvent.getAction() != KeyEvent.ACTION_DOWN)
 			return false;
-		
+
 		boolean handled = false;
 		switch(inKeyCode)
 		{
-			case KeyEvent.KEYCODE_DPAD_UP:
-				mTacticsView.zoom(0.9);
-				handled = true;
-				break;
-				
-			case KeyEvent.KEYCODE_DPAD_DOWN:
-				mTacticsView.zoom(1.1);
-				handled = true;
-				break;
+		case KeyEvent.KEYCODE_DPAD_UP:
+			mTacticsView.zoom(0.9);
+			handled = true;
+			break;
+
+		case KeyEvent.KEYCODE_DPAD_DOWN:
+			mTacticsView.zoom(1.1);
+			handled = true;
+			break;
 		}
-		
+
 		return handled;
 	}
 
-	@Override
+	public boolean onScale(ScaleGestureDetector inDetector)
+	{
+		//Log.i(this.getClass().getName(), "Current Span: " + Double.toString(inDetector.getCurrentSpan()) + " Previous Span: " + Double.toString(inDetector.getPreviousSpan()));
+		mTacticsView.zoom(inDetector.getCurrentSpan() / inDetector.getPreviousSpan());
+		return true;
+	}
+
+	public boolean onScaleBegin(ScaleGestureDetector inDetector) { /*Log.i(this.getClass().getName(), "Scale begin");*/ return true; }
+
+	public void onScaleEnd(ScaleGestureDetector inDetector) { /*Log.i(this.getClass().getName(), "Scale end");*/ }
+
 	public boolean onCreateOptionsMenu(Menu inMenu)
 	{
 		MenuInflater inflater = getMenuInflater();
@@ -129,25 +146,24 @@ public class Tactics extends Activity implements OnTouchListener, OnKeyListener
 		return true;
 	}
 
-	@Override
 	public boolean onOptionsItemSelected(MenuItem inItem)
 	{
 		switch (inItem.getItemId())
 		{
-			case R.id.end_turn:
-				endTurn();
-				return true;
-			case R.id.new_game:
-				newGame();
-				return true;
-			default:
-				return super.onOptionsItemSelected(inItem);
+		case R.id.end_turn:
+			endTurn();
+			return true;
+		case R.id.new_game:
+			newGame();
+			return true;
+		default:
+			return super.onOptionsItemSelected(inItem);
 		}
 	}
 
 	private void newGame()
 	{
-        mTacticsView.newGame();
+		mTacticsView.newGame();
 		mThread = mTacticsView.getThread();
 
 		Resources res = getResources();
@@ -157,28 +173,38 @@ public class Tactics extends Activity implements OnTouchListener, OnKeyListener
 		mPlayer = new Unit(R.drawable.unit_player);
 		mPlayer.setActionPoints(5);
 		mPlayer.moveTo(4, 4);
-		
+
 		mEnemies = new Vector<Unit>();
 		for (int i = 0; i < res.getInteger(R.integer.enemy_count); i++) {
 			Unit enemy = new Unit(R.drawable.unit_enemy);
-			enemy.moveTo(mBoard.width() - (1 + i), mBoard.height() - 1); // move to opposite end of board
+			enemy.moveTo((int)(Math.random() * mBoard.width()), (int)(Math.random() * mBoard.height())); // move to random location
 			mEnemies.add(enemy);
 			mThread.addEnemy(enemy);
 		}
 
-        mTacticsView.setGameBoard(mBoard);
+		mTacticsView.setGameBoard(mBoard);
 		mThread.setPlayer(mPlayer);
 		mMovingPlayer = false;
 	}
-	
+
 	private void endTurn()
 	{
 		mPlayer.resetAP();
-		
-		//moveNPC();
-		
+
 		for (Iterator<Unit> iter = mEnemies.iterator(); iter.hasNext();)
-			iter.next().resetAP();
+			NPCTurn(iter.next());				
+	}
+
+	private void NPCTurn(Unit inUnit)
+	{
+		inUnit.resetAP();
+
+		Vector<Point> adjacentTiles = mBoard.getAdjacentTiles(inUnit);
+
+		double randomResult = Math.random();
+		randomResult *= adjacentTiles.size();
+
+		inUnit.moveTo(adjacentTiles.elementAt((int)randomResult));
 	}
 
 	boolean mMovingPlayer;
@@ -187,4 +213,5 @@ public class Tactics extends Activity implements OnTouchListener, OnKeyListener
 	private Vector<Unit> mEnemies;
 	private TacticsView mTacticsView;
 	private TacticsThread mThread;
+	private ScaleGestureDetector mScaleDetector;
 }
