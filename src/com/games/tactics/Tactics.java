@@ -169,6 +169,7 @@ public class Tactics extends Activity implements OnTouchListener, OnKeyListener,
 		Resources res = getResources();
 		mBoard = new GameBoard(res.getInteger(R.integer.board_width), res.getInteger(R.integer.board_height));
 		mBoard.mapTerrain(GameBoard.TerrainType.OUTSIDE, R.drawable.tile_soil_cracked);
+		mBoard.mapTerrain(GameBoard.TerrainType.WATER, R.drawable.tile_water_plain);
 
 		mPlayer = new Unit(R.drawable.unit_player);
 		mPlayer.setActionPoints(5);
@@ -177,7 +178,11 @@ public class Tactics extends Activity implements OnTouchListener, OnKeyListener,
 		mEnemies = new Vector<Unit>();
 		for (int i = 0; i < res.getInteger(R.integer.enemy_count); i++) {
 			Unit enemy = new Unit(R.drawable.unit_enemy);
-			enemy.moveTo((int)(Math.random() * mBoard.width()), (int)(Math.random() * mBoard.height())); // move to random location
+			Point randomPoint;
+			do {
+				randomPoint = new Point((int)(Math.random() * mBoard.width()), (int)(Math.random() * mBoard.height()));
+			} while (!mBoard.isPassableTerrain(randomPoint));
+			enemy.moveTo(randomPoint); // move to random location
 			mEnemies.add(enemy);
 			mThread.addEnemy(enemy);
 		}

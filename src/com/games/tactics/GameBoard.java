@@ -16,6 +16,12 @@ class GameBoard
 		for (int x = 0; x < inWidth; x++)
 			for (int y = 0; y < inHeight; y++)
 				mTerrainType[x][y] = TerrainType.OUTSIDE;
+		
+		// add a lake (hardcoded)
+		for (int x = 8; x <= 12; x++)
+			for (int y = 8; y <= 12; y++)
+				mTerrainType[x][y] = TerrainType.WATER;
+			
 
 		mTerrainResources = new EnumMap<TerrainType, Integer>(TerrainType.class);
 	}
@@ -57,7 +63,7 @@ class GameBoard
 				if (!mDimensions.contains(p.x, p.y))
 					continue; // off edge of board
 				
-				if (mTerrainType[p.x][p.y] == TerrainType.WALL || mTerrainType[p.x][p.y] == TerrainType.WATER)
+				if (!isPassableTerrain(p))
 					continue; // can't walk on this terrain type
 				
 				// need to check if there is another unit here?
@@ -67,6 +73,11 @@ class GameBoard
 		}
 		
 		return outPoints;
+	}
+	
+	public boolean isPassableTerrain(Point inPoint)
+	{
+		return mTerrainType[inPoint.x][inPoint.y] != TerrainType.WALL && mTerrainType[inPoint.x][inPoint.y] != TerrainType.WATER;
 	}
 
 	public enum TerrainType
