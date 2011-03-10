@@ -174,6 +174,7 @@ public class Tactics extends Activity implements OnTouchListener, OnKeyListener,
 		mPlayer = new Unit(R.drawable.unit_player);
 		mPlayer.setActionPoints(5);
 		mPlayer.moveTo(4, 4);
+		mPlayer.equipWeapon(new Pistol());
 
 		mEnemies = new Vector<Unit>();
 		for (int i = 0; i < res.getInteger(R.integer.enemy_count); i++) {

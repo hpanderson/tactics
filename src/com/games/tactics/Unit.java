@@ -1,5 +1,7 @@
 package com.games.tactics;
 
+import java.util.Vector;
+
 import android.graphics.Point;
 import android.graphics.Rect;
 import android.util.Log;
@@ -17,12 +19,22 @@ class Unit
 		mAPTotal = 10;
 		mAPRemaining = mAPTotal;
 		mInventorySpace = 5;
-		mInventory = new int[mInventorySpace];
-		for (int i = 0; i < mInventorySpace; i++)
-			mInventory[i] = 0;
-
+		mInventory = new Vector<Item>();
+		
 		mResourceId = inResourceId;
 		//mIsPlayerControlled = false;
+	}
+	
+	public boolean giveItem(Item inItem)
+	{
+		if (mInventory.size() >= mInventorySpace)
+			return false;
+		return mInventory.add(inItem);
+	}
+	
+	public void equipWeapon(Weapon inWeapon)
+	{
+		mEquippedWeapon = inWeapon;
 	}
 
 	public Point getLocation() { return mLocation; }
@@ -109,7 +121,9 @@ class Unit
 
 	private int mInventorySpace;
 	private int mResourceId;
-	private int[] mInventory;
+	private Vector<Item> mInventory;
+	
+	private Weapon mEquippedWeapon;
 
 	//private boolean mIsPlayerControlled;
 }
