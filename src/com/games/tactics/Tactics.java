@@ -74,6 +74,8 @@ public class Tactics extends Activity implements OnTouchListener, OnKeyListener,
 			case MotionEvent.ACTION_DOWN:
 				if (onPlayer && mPlayer.hasAP())
 					mThread.setMovingPlayer(true);
+				else
+					mThread.setShowingMenu(false);
 				break;
 	
 			case MotionEvent.ACTION_UP:
@@ -88,10 +90,19 @@ public class Tactics extends Activity implements OnTouchListener, OnKeyListener,
 	
 			case MotionEvent.ACTION_MOVE:
 	
-				if (!mThread.isMovingPlayer()) {
-					if (inEvent.getHistorySize() > 0) // just get the previous point
-						mTacticsView.panView(new Point((int)(inEvent.getHistoricalX(0) - inEvent.getX()), (int)(inEvent.getHistoricalY(0) - inEvent.getY())));
-				} else {
+				if (!mThread.isMovingPlayer())
+				{
+					Point holdPoint = mTacticsView.getLogicalView().physicalToTile(new Point((int)inEvent.getHistoricalX(0), (int)inEvent.getHistoricalY(0)));
+					long holdTime = inEvent.getEventTime() - inEvent.getDownTime();
+					if (holdTime > 2000 && landingPoint.equals(holdPoint)) {
+						// user is holding on one spot, display popup menu
+						mThread.setTarget(inEvent.getX(), inEvent.getY());
+						mThread.setShowingMenu(true);
+					} else {
+						if (inEvent.getHistorySize() > 0) // just get the previous point
+							mTacticsView.panView(new Point((int)(inEvent.getHistoricalX(0) - inEvent.getX()), (int)(inEvent.getHistoricalY(0) - inEvent.getY())));
+					}
+				} else {					
 					if (onPlayer)
 						mThread.setTarget(-1, -1); // don't display ghost if user is touching the player
 					else

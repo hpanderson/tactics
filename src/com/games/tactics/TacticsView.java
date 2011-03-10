@@ -138,6 +138,7 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 			{
 				mTarget = new PointF(-1, -1);
 				mMovingPlayer = false;
+				mShowingMenu = false;
 	
 				mTime = 0;
 				mEnemies = new Vector<Unit>();
@@ -196,8 +197,37 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 	
 				if (mTarget.x >= 0)
 			   	{				
-					if (!mMovingPlayer)
-					{					
+					if (mMovingPlayer)
+					{		
+						double angle = mLogicalView.getUnitAngle(mPlayer, mTarget); 
+	
+						// draw ghost of player to show where move will result
+						// don't need a full copy of the player, just the resource id and location
+						Unit playerGhost = new Unit(mPlayer.getResourceId());
+						playerGhost.moveTo(mPlayer.getLocation());
+						playerGhost.move(angle, mBoard.getRect());
+						int alpha = 100;
+						drawUnit(playerGhost, inCanvas, alpha);
+					} else if (mShowingMenu)
+					{
+						RectF menuRect = new RectF(mTarget.x, mTarget.y - 200, mTarget.x + 200, mTarget.y);
+						
+						// draw background
+						Paint menuPaint = new Paint();
+						menuPaint.setAntiAlias(true);
+						menuPaint.setColor(Color.MAGENTA);
+						menuPaint.setAlpha(50);
+						menuPaint.setStyle(Paint.Style.FILL);
+						inCanvas.drawRect(menuRect, menuPaint);
+
+						// draw border
+						menuPaint.setColor(Color.RED);
+						menuPaint.setAlpha(255);
+						menuPaint.setStyle(Paint.Style.STROKE);
+						inCanvas.drawRect(menuRect, menuPaint);
+					
+					} else
+					{			
 						// draw target line
 						//Rect enemyRect = boardToScreen(mEnemy.getLocation());
 						Rect playerRect = mLogicalView.tileToPhysical(mPlayer.getLocation());
@@ -211,17 +241,6 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 						//}
 	
 						inCanvas.drawLine(playerRect.centerX(), playerRect.centerY(), mTarget.x, mTarget.y, linePaint);
-					} else
-				   	{
-						double angle = mLogicalView.getUnitAngle(mPlayer, mTarget); 
-	
-						// draw ghost of player to show where move will result
-						// don't need a full copy of the player, just the resource id and location
-						Unit playerGhost = new Unit(mPlayer.getResourceId());
-						playerGhost.moveTo(mPlayer.getLocation());
-						playerGhost.move(angle, mBoard.getRect());
-						int alpha = 100;
-						drawUnit(playerGhost, inCanvas, alpha);
 					}
 				}
 				
@@ -302,6 +321,9 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 		public void setMovingPlayer(boolean inMoving) { mMovingPlayer = inMoving; }
 		public boolean isMovingPlayer() { return mMovingPlayer; }
 
+		public void setShowingMenu(boolean inShowingMenu) { mShowingMenu = inShowingMenu; }
+		public boolean isShowingMenu() { return mShowingMenu; }
+
 		public void setPlayer(Unit inPlayer) { mPlayer = inPlayer; }
 		public void addEnemy(Unit inEnemy) { mEnemies.add(inEnemy); }
 
@@ -335,6 +357,7 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 
 		private PointF mTarget;
 		private boolean mMovingPlayer;
+		private boolean mShowingMenu;
 
 		private long mTime;
 
