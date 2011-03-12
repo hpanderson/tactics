@@ -15,8 +15,9 @@ import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.Paint;
 import android.graphics.Color;
-import android.graphics.drawable.Drawable;
+import android.graphics.Typeface;
 
+import android.graphics.drawable.Drawable;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 
@@ -136,6 +137,7 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 		{
         	synchronized(mSurfaceHolder)
 			{
+        		mMenuRect = new RectF(-1, -1, -1, -1);
 				mTarget = new PointF(-1, -1);
 				mMovingPlayer = false;
 				mShowingMenu = false;
@@ -208,24 +210,8 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 						playerGhost.move(angle, mBoard.getRect());
 						int alpha = 100;
 						drawUnit(playerGhost, inCanvas, alpha);
-					} else if (mShowingMenu)
-					{
-						RectF menuRect = new RectF(mTarget.x, mTarget.y - 200, mTarget.x + 200, mTarget.y);
-						
-						// draw background
-						Paint menuPaint = new Paint();
-						menuPaint.setAntiAlias(true);
-						menuPaint.setColor(Color.MAGENTA);
-						menuPaint.setAlpha(50);
-						menuPaint.setStyle(Paint.Style.FILL);
-						inCanvas.drawRect(menuRect, menuPaint);
-
-						// draw border
-						menuPaint.setColor(Color.RED);
-						menuPaint.setAlpha(255);
-						menuPaint.setStyle(Paint.Style.STROKE);
-						inCanvas.drawRect(menuRect, menuPaint);
-					
+					} else if (mShowingMenu) {
+						drawMenu(inCanvas);					
 					} else
 					{			
 						// draw target line
@@ -309,6 +295,30 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 			unitImage.setBounds(unitRect);
 			unitImage.draw(inCanvas);
 		}
+		
+		private void drawMenu(Canvas inCanvas)
+		{
+			mMenuRect = new RectF(mTarget.x, mTarget.y - 200, mTarget.x + 200, mTarget.y);
+			
+			// draw background
+			Paint menuPaint = new Paint();
+			menuPaint.setAntiAlias(true);
+			menuPaint.setColor(Color.MAGENTA);
+			menuPaint.setAlpha(50);
+			menuPaint.setStyle(Paint.Style.FILL);
+			inCanvas.drawRect(mMenuRect, menuPaint);
+
+			// draw border
+			menuPaint.setColor(Color.RED);
+			menuPaint.setAlpha(255);
+			menuPaint.setStyle(Paint.Style.STROKE);
+			inCanvas.drawRect(mMenuRect, menuPaint);
+			
+			menuPaint.setColor(Color.WHITE);
+			menuPaint.setTypeface(Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL));
+			menuPaint.setTextSize(40);
+			inCanvas.drawText("Fire", mMenuRect.left, mMenuRect.bottom - 40, menuPaint);
+		}
 
 		public void setTarget(double inX, double inY)
 		{
@@ -323,6 +333,7 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 
 		public void setShowingMenu(boolean inShowingMenu) { mShowingMenu = inShowingMenu; }
 		public boolean isShowingMenu() { return mShowingMenu; }
+		public boolean isInMenu(float inX, float inY) { return mMenuRect.contains(inX, inY); } ///< We're really after what menu item this point is on.
 
 		public void setPlayer(Unit inPlayer) { mPlayer = inPlayer; }
 		public void addEnemy(Unit inEnemy) { mEnemies.add(inEnemy); }
@@ -355,8 +366,9 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 
 		private boolean mRunning;
 
-		private PointF mTarget;
+		private PointF mTarget; ///< This is the physical point where the user last clicked.
 		private boolean mMovingPlayer;
+		private RectF mMenuRect;
 		private boolean mShowingMenu;
 
 		private long mTime;

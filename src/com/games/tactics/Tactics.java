@@ -72,6 +72,14 @@ public class Tactics extends Activity implements OnTouchListener, OnKeyListener,
 		switch (inEvent.getAction())
 		{
 			case MotionEvent.ACTION_DOWN:
+				if (mThread.isShowingMenu()) {
+					if (mThread.isInMenu(inEvent.getX(), inEvent.getY()))
+					{
+						// for now, assume only one menu item
+						mPlayer.attack(mTarget);
+					}
+				}
+				
 				if (onPlayer && mPlayer.hasAP())
 					mThread.setMovingPlayer(true);
 				else
@@ -82,9 +90,8 @@ public class Tactics extends Activity implements OnTouchListener, OnKeyListener,
 				if (mThread.isMovingPlayer() && !onPlayer) {
 					double angle = mTacticsView.getLogicalView().getUnitAngle(mPlayer, new PointF(inEvent.getX(), inEvent.getY()));
 					mPlayer.move(angle, mBoard.getRect());
-				}
-	
-				mThread.setTarget(-1, -1);
+				} else if (!mThread.isShowingMenu())
+					mThread.setTarget(-1, -1);
 				mThread.setMovingPlayer(false);			
 				break;
 	
@@ -98,6 +105,7 @@ public class Tactics extends Activity implements OnTouchListener, OnKeyListener,
 						// user is holding on one spot, display popup menu
 						mThread.setTarget(inEvent.getX(), inEvent.getY());
 						mThread.setShowingMenu(true);
+						mTarget = landingPoint;
 					} else {
 						if (inEvent.getHistorySize() > 0) // just get the previous point
 							mTacticsView.panView(new Point((int)(inEvent.getHistoricalX(0) - inEvent.getX()), (int)(inEvent.getHistoricalY(0) - inEvent.getY())));
@@ -225,6 +233,8 @@ public class Tactics extends Activity implements OnTouchListener, OnKeyListener,
 	}
 
 	boolean mMovingPlayer;
+	private Point mTarget; ///< The board tile that the current action is on. This is the point where the player clicked to bring up a menu, or where they clicked to target an action.
+	
 	private GameBoard mBoard;
 	private Unit mPlayer;
 	private Vector<Unit> mEnemies;

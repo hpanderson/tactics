@@ -100,6 +100,11 @@ class Unit
 	public void moveTo(Point inPoint) { moveTo(inPoint.x, inPoint.y); }
 	public void moveTo(int inX, int inY) { mLocation.x = inX; mLocation.y = inY; }
 
+	public void attack(Point inTarget)
+	{
+		mEquippedWeapon.attack(1);
+	}
+	
 	public void setResourceId(int inId) { mResourceId = inId; }
 	public int getResourceId() { return mResourceId; }
 
@@ -108,7 +113,7 @@ class Unit
 		mAPTotal = inAP;
 		mAPRemaining = mAPTotal;
 	}
-
+	
 	public int getAPRemaining() { return mAPRemaining; }
 	public boolean hasAP() { return mAPRemaining > 0; }
 	public void useAP(int inUsed) { mAPRemaining = Math.min(0, mAPRemaining - inUsed); }
