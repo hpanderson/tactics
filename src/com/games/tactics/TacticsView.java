@@ -15,7 +15,6 @@ import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.Paint;
 import android.graphics.Color;
-import android.graphics.Typeface;
 
 import android.graphics.drawable.Drawable;
 import android.graphics.Bitmap;
@@ -25,7 +24,8 @@ import java.util.Vector;
 import java.util.Iterator;
 import java.util.HashMap;
 
-import com.games.tactics.GameBoard.TerrainType;
+import com.games.tactics.ContextMenu.ContextCommand;
+import com.games.tactics.PopupMenu;
 
 class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 {
@@ -297,27 +297,12 @@ class TacticsView extends SurfaceView implements SurfaceHolder.Callback
 		}
 		
 		private void drawMenu(Canvas inCanvas)
-		{
-			mMenuRect = new RectF(mTarget.x, mTarget.y - 200, mTarget.x + 200, mTarget.y);
-			
-			// draw background
-			Paint menuPaint = new Paint();
-			menuPaint.setAntiAlias(true);
-			menuPaint.setColor(Color.MAGENTA);
-			menuPaint.setAlpha(50);
-			menuPaint.setStyle(Paint.Style.FILL);
-			inCanvas.drawRect(mMenuRect, menuPaint);
-
-			// draw border
-			menuPaint.setColor(Color.RED);
-			menuPaint.setAlpha(255);
-			menuPaint.setStyle(Paint.Style.STROKE);
-			inCanvas.drawRect(mMenuRect, menuPaint);
-			
-			menuPaint.setColor(Color.WHITE);
-			menuPaint.setTypeface(Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL));
-			menuPaint.setTextSize(40);
-			inCanvas.drawText("Fire", mMenuRect.left, mMenuRect.bottom - 40, menuPaint);
+		{			
+			PopupMenu menu = new PopupMenu();
+			menu.AddCommand(ContextCommand.MOVE);
+			menu.AddCommand(ContextCommand.ATTACK);
+			menu.setTarget(mTarget);
+			menu.draw(inCanvas);
 		}
 
 		public void setTarget(double inX, double inY)
